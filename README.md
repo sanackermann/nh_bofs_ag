@@ -1,6 +1,6 @@
 # 🛠️ Avantguard BOF Command Pack (Nighthawk Scripts)
 
-This repository provides a Python wrappers for executing **BOF (Beacon Object File)** commands within **Nighthawk**.
+This repository provides a Python wrapper for executing **BOF (Beacon Object File)** commands within **Nighthawk**.
 Each command wraps a compiled `.o` object and uses the `Packer` API to prepare parameters for inline BOF execution.
 
 ---
