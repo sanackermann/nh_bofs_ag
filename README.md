@@ -56,7 +56,7 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 
 | Command                       | Description                                                                                                       | Usage                                                      |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| **ldapsearch**                | Performs an LDAP search against Active Directory and returns matching objects/attributes.                         | `ldapsearch <ldap_filter> [attributes] [base_dn] [server]` |
+| **ldapsearch**                | Performs an LDAP search against Active Directory and returns matching objects/attributes.                         | `ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps]` |
 | **netGroupList**              | Lists all groups in the current or specified Active Directory domain.                                             | `netGroupList [domain]`                                    |
 | **netGroupListMembers**       | Lists members of a specified domain group.                                                                        | `netGroupListMembers "<Group Name>" [domain]`              |
 | **netLocalGroupList**         | Lists all local groups on the current or specified server.                                                        | `netLocalGroupList [server]`                               |
