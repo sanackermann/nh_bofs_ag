@@ -1,6 +1,22 @@
+import json
+import base64
+
 def replace_quotes(s):
         return s.strip().strip('"').strip("'")
-        
+
+def write_output_to_file(notification, file_name):
+    notification = json.loads(notification)
+    with open(file_name, "w", encoding="utf-8") as f:
+        for output in notification['CommandResponse']['ExecutionResult']['Outputs']:
+            line = f"{base64.b64decode(output['buffer']).decode('utf-8')}"
+            nighthawk.console_write(CONSOLE_INFO, line )
+            f.write(line)
+
+def log_output(notification, push_client, api, info):
+    notification = json.loads(notification)
+    for output in notification['CommandResponse']['ExecutionResult']['Outputs']:
+        nighthawk.console_write(CONSOLE_INFO, f"{base64.b64decode(output['buffer']).decode('utf-8')}" )
+
 # region BOF - ldapsearch
 def ldapsearch_param(params, info):
     # Default values
@@ -12,6 +28,7 @@ def ldapsearch_param(params, info):
     dn = ""
     ldaps = False
     skip = False
+    save_to_file = ""
 
     # Parse args
     if len(params) > 0:
@@ -41,9 +58,12 @@ def ldapsearch_param(params, info):
                 i += 1
             elif option == "--ldaps":
                 ldaps = True
+            elif option == "--save-to-file":
+                save_to_file = value
+                i += 1
             else:
                 nighthawk.console_write(CONSOLE_ERROR, f"Unknown argument: {arg}")
-                nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps]")
+                nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]")
                 return None
             i += 1
 
@@ -61,18 +81,22 @@ def ldapsearch_param(params, info):
 
     # You can now call your static function
     # static_call(packed_params, info)
-    return packed_params
+    return packed_params, save_to_file
 
 def ldapsearch(params, info):
     with open(nighthawk.script_resource(f"SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
-    packed_params = ldapsearch_param(params, info)
+    packed_params, save_to_file = ldapsearch_param(params, info)
     if type(packed_params) != bytes:
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing ldapserach BOF")
-    api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", show_in_console=True)
+    if save_to_file != "":
+        notification = api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+        write_output_to_file(notification, save_to_file)
+    else:
+        api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", callback=log_output, notify_only=False)
 
-nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps]
+nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]
 	with :
 		query => the LDAP query to be performed
 		--attributes [comma_separated_attributes] => the attributes to retrieve (default: *)
@@ -81,6 +105,7 @@ nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search 
 		--hostname [hostname] => hostname or IP to perform the LDAP connection on (default: automatic DC resolution)
 		--dn [dn] => the LDAP query base
 		--ldaps => use of ldaps
+        --save-to-file => file to write output to
 Important - To add in ACLs so Bloodhound can draw relationships between objects (see external BofHound tool), add nTSecurityDescriptor in the attributes list, like so:
 ldapsearch <query> --attributes *,ntsecuritydescriptor ...
 Useful queries (queries are just an example, edit where necessary to make it OPSEC safe):
