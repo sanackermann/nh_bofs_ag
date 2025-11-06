@@ -21,7 +21,8 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
    * Select the file:
 
      ```
-     C:\tools\nighthawk\release-3.7\Bofs\avantguard\avantguard_nh_commands.py
+     C:\tools\nighthawk\release-3.7\Bofs\avantguard\avantguard_sa_bof_commands.py
+     C:\tools\nighthawk\release-3.7\Bofs\avantguard\avantguard_sql_bof_commands.py
      ```
 
 3. **If Python is not available or the version is incorrect:**
@@ -56,8 +57,8 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 
 | Command                       | Description                                                                                                       | Usage                                                      |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| **ldapsearch**                | Performs an LDAP search against Active Directory and returns matching objects/attributes.                         | `ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps]` |
-| **routeprint**                | Displays the system’s IPv4 routing table and related interface metrics.                                      | `routeprint`                                               |
+| **ldapsearch**                | Performs an LDAP search against Active Directory and returns matching objects/attributes.                         | `ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]` |
+| **routeprint**                | Displays the system’s IPv4 routing table and related interface metrics.                                           | `routeprint`                                               |
 | **netGroupList**              | Lists all groups in the current or specified Active Directory domain.                                             | `netGroupList [domain]`                                    |
 | **netGroupListMembers**       | Lists members of a specified domain group.                                                                        | `netGroupListMembers "<Group Name>" [domain]`              |
 | **netLocalGroupList**         | Lists all local groups on the current or specified server.                                                        | `netLocalGroupList [server]`                               |
@@ -69,6 +70,10 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 | **adcs_enum_com**             | Enumerates CAs and templates using the `ICertConfig`, `ICertRequest`, and `IX509CertificateTemplate` COM objects. | `adcs_enum_com`                                            |
 | **adcs_enum_com2**            | Enumerates CAs and templates using the `IX509PolicyServerListManager` and related COM objects.                    | `adcs_enum_com2`                                           |
 | **ipconfig**                  | Runs an internal `ipconfig` equivalent, listing network adapters, hostname, and DNS servers.                      | `ipconfig`                                                 |
+| **sql-whoami**                | Gather information about logged in user, mapped user and roles on a SQL server.                                   | `server [database] [linkedserver] [impersonate]`           |
+| **sql-info**                  | Gather general information about a SQL server.                                                                    | `server [database]`                                        |
+| **sql-enablexp**              | Enable xp_cmdshell.                                                                                               | `server [database] [linkedserver] [impersonate]`           |
+| **sql-xpcmd**                 | Execute a system command via xp_cmdshell.                                                                         | `server command [database] [linkedserver] [impersonate]`   |
 
 ---
 
@@ -92,4 +97,16 @@ netLocalGroupListMembers "Administrators" SERVER01
 
 # Run internal network configuration
 ipconfig
+
+# Get user permissions on SQL server
+sql-whoami SQL01
+
+# Gather information about SQL server
+sql-info SQL01
+
+# Enable xp_cmd on SQL server
+sql-enablexp SQL01
+
+# Run system command on SQL server
+sql-xpcmd SQL01 ipconfig
 ```
