@@ -4,18 +4,18 @@ import base64
 def replace_quotes(s):
         return s.strip().strip('"').strip("'")
 
-def write_output_to_file(notification, file_name):
+def write_output(notification, file_name):
     notification = json.loads(notification)
-    with open(file_name, "w", encoding="utf-8") as f:
-        for output in notification['CommandResponse']['ExecutionResult']['Outputs']:
-            line = f"{base64.b64decode(output['buffer']).decode('utf-8')}"
-            nighthawk.console_write(CONSOLE_INFO, line )
-            f.write(line)
-
-def log_output(notification, push_client, api, info):
-    notification = json.loads(notification)
+    if file_name != "":
+        f = open(file_name, "w", encoding="utf-8")
     for output in notification['CommandResponse']['ExecutionResult']['Outputs']:
-        nighthawk.console_write(CONSOLE_INFO, f"{base64.b64decode(output['buffer']).decode('utf-8')}" )
+        line = f"{base64.b64decode(output['buffer']).decode('utf-8')}"
+        nighthawk.console_write(CONSOLE_INFO, line )
+        if file_name != "":
+            f.write(line)
+    
+    if file_name != "":
+        f.close()
 
 # region BOF - ldapsearch
 def ldapsearch_param(params, info):
@@ -90,11 +90,8 @@ def ldapsearch(params, info):
     if type(packed_params) != bytes:
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing ldapserach BOF")
-    if save_to_file != "":
-        notification = api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-        write_output_to_file(notification, save_to_file)
-    else:
-        api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", callback=log_output, notify_only=False)
+    notification = api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+    write_output(notification, save_to_file)
 
 nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]
 	with :
