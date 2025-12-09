@@ -4,13 +4,14 @@ import base64
 def replace_quotes(s):
         return s.strip().strip('"').strip("'")
 
-def write_output(notification, file_name):
+def write_output(notification, file_name: str, output_to_console: bool):
     notification = json.loads(notification)
     if file_name != "":
         f = open(file_name, "w", encoding="utf-8")
     for output in notification['CommandResponse']['ExecutionResult']['Outputs']:
-        line = f"{base64.b64decode(output['buffer']).decode('utf-8')}"
-        nighthawk.console_write(CONSOLE_INFO, line )
+        line = f"{base64.b64decode(output['buffer']).decode('utf-8', errors='replace')}"
+        if output_to_console:
+            nighthawk.console_write(CONSOLE_INFO, line )
         if file_name != "":
             f.write(line)
     
@@ -29,6 +30,7 @@ def ldapsearch_param(params, info):
     ldaps = False
     skip = False
     save_to_file = ""
+    output_to_console = True
 
     # Parse args
     if len(params) > 0:
@@ -61,6 +63,8 @@ def ldapsearch_param(params, info):
             elif option == "--save-to-file":
                 save_to_file = value
                 i += 1
+            elif option == "--suppress-console-output":
+                output_to_console = False
             else:
                 nighthawk.console_write(CONSOLE_ERROR, f"Unknown argument: {arg}")
                 nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]")
@@ -81,17 +85,18 @@ def ldapsearch_param(params, info):
 
     # You can now call your static function
     # static_call(packed_params, info)
-    return packed_params, save_to_file
+    return packed_params, save_to_file, output_to_console
 
 def ldapsearch(params, info):
     with open(nighthawk.script_resource(f"SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
-    packed_params, save_to_file = ldapsearch_param(params, info)
+    packed_params, save_to_file, output_to_console = ldapsearch_param(params, info)
     if type(packed_params) != bytes:
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing ldapserach BOF")
     notification = api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification, save_to_file)
+    write_output(notification, save_to_file, output_to_console)
+    nighthawk.console_write(CONSOLE_INFO, "Finished executing ldapsearch BOF")
 
 nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]
 	with :
@@ -102,7 +107,8 @@ nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search 
 		--hostname [hostname] => hostname or IP to perform the LDAP connection on (default: automatic DC resolution)
 		--dn [dn] => the LDAP query base
 		--ldaps => use of ldaps
-        --save-to-file => file to write output to
+                --save-to-file => file to write output to
+                --suppress-console-output => suppress output to Nighthawk console
 Important - To add in ACLs so Bloodhound can draw relationships between objects (see external BofHound tool), add nTSecurityDescriptor in the attributes list, like so:
 ldapsearch <query> --attributes *,ntsecuritydescriptor ...
 Useful queries (queries are just an example, edit where necessary to make it OPSEC safe):
