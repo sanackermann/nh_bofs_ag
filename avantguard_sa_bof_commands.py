@@ -750,3 +750,99 @@ THIS IS AN AVANTGUARD SCRIPT""",
 
 # endregion
 
+# region BOF - enumLocalSessions
+
+def enumlocalsessions(params, info):
+    with open(nighthawk.script_resource(f"SA/enumlocalsessions/enumlocalsessions.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+
+    packer = Packer()
+    packed_params = packer.getbuffer()  # no parameters for ipconfig
+
+    if type(packed_params) != bytes:
+        return False
+
+    nighthawk.console_write(CONSOLE_INFO, "executing enumlocalsessions BOF")
+    api.execute_bof(
+        f"enumlocalsessions.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "T1033",  # matches the MITRE technique from original
+        show_in_console=True
+    )
+
+
+nighthawk.register_command(
+    enumlocalsessions,
+    "enumlocalsessions",
+    "BOF - Enumerate the currently attached user sessions both local and over rdp (avantguard script)",
+    "BOF - Enumerate the currently attached user sessions both local and over rdp (avantguard script)",
+    """enumlocalsessions
+Summary: Enumerate the currently attached user sessions both local and over rdp.
+Usage:   enumlocalsessions
+
+THIS IS AN AVANTGUARD SCRIPT""",
+    "enumlocalsessions"
+)
+
+# endregion
+
+# region BOF - probe
+
+def probe(params, info):
+    with open(nighthawk.script_resource(f"SA/probe/probe.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+
+    port = 0
+    server = ""
+    if len(params) > 1:
+        server = params[0]
+        port = int(params[1])
+    else:
+        nighthawk.console_write(CONSOLE_ERROR, f"!! Usage:   probe <host> <port>")
+        return False
+
+    if port < 1 or port > 65535:
+        nighthawk.console_write(CONSOLE_ERROR, f"!! Port out of range of 1-65534")
+        return False
+
+    packer = Packer()
+    packer.addstr(server)
+    packer.addint32(port)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    nighthawk.console_write(CONSOLE_INFO, "executing probe BOF")
+    api.execute_bof(
+        f"probe.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "T1046",
+        show_in_console=True
+    )
+
+
+nighthawk.register_command(
+    probe,
+    "probe",
+    "BOF - Test TCP Port (avantguard script)",
+    "BOF - Test TCP Port (avantguard script)",
+    """probe [Server or IP] [Port]
+Summary: Test TCP Port.
+Usage:   probe <host> <port>
+
+THIS IS AN AVANTGUARD SCRIPT""",
+    "probe 10.0.0.2 445"
+)
+
+# endregion
