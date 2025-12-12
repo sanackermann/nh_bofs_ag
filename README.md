@@ -74,6 +74,8 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 | **sql-info**                  | Gather general information about a SQL server.                                                                    | `server [database]`                                        |
 | **sql-enablexp**              | Enable xp_cmdshell.                                                                                               | `server [database] [linkedserver] [impersonate]`           |
 | **sql-xpcmd**                 | Execute a system command via xp_cmdshell.                                                                         | `server command [database] [linkedserver] [impersonate]`   |
+| **probe**                 | Test TCP Port                                                                         | `probe [server] [port]`   |
+| **enumlocalsessions**                 | Enumerate the currently attached user sessions                                                                         | `enumlocalsessions`   |
 
 ---
 
