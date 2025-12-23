@@ -88,7 +88,7 @@ def ldapsearch_param(params, info):
     return packed_params, save_to_file, output_to_console
 
 def ldapsearch(params, info):
-    with open(nighthawk.script_resource(f"SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     packed_params, save_to_file, output_to_console = ldapsearch_param(params, info)
     if type(packed_params) != bytes:
@@ -123,7 +123,7 @@ THIS IS AN AVANTGUARD SCRIPT""", "ldapsearch (objectclass=domain)")
 # region BOF - netshares & netsharesAdmin
 
 def netshares(params, info):
-    with open(nighthawk.script_resource(f"SA/netshares/netshares.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/netshares/netshares.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     host = ""
     admin = False
@@ -152,7 +152,7 @@ THIS IS AN AVANTGUARD SCRIPT""", "netshares \\\\ws21")
 # region BOF - adcs_enum
 
 def adcs_enum(params, info):
-    with open(nighthawk.script_resource(f"SA/adcs_enum/adcs_enum.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/adcs_enum/adcs_enum.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     domain = ""
     if len(params) > 0:
@@ -182,7 +182,7 @@ THIS IS AN AVANTGUARD SCRIPT""", "adcs_enum CONTOSO.com")
 # region BOF - adcs_enum_com
 
 def adcs_enum_com(params, info):
-    with open(nighthawk.script_resource(f"SA/adcs_enum_com/adcs_enum_com.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/adcs_enum_com/adcs_enum_com.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     packer = Packer()
@@ -217,7 +217,7 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - adcs_enum_com2
 
 def adcs_enum_com2(params, info):
-    with open(nighthawk.script_resource(f"SA/adcs_enum_com2/adcs_enum_com2.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/adcs_enum_com2/adcs_enum_com2.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     packer = Packer()
@@ -254,7 +254,7 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - routeprint
 
 def routeprint(params, info):
-    with open(nighthawk.script_resource(f"SA/routeprint/routeprint.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/routeprint/routeprint.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     packer = Packer()
     packed_params = packer.getbuffer()
@@ -273,7 +273,7 @@ THIS IS AN AVANTGUARD SCRIPT""", "routeprint ")
 # region BOF - ipconfig
 
 def ipconfig(params, info):
-    with open(nighthawk.script_resource(f"SA/ipconfig/ipconfig.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/ipconfig/ipconfig.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     packer = Packer()
@@ -317,7 +317,7 @@ def netGroupList(params, info):
     """
     Lists groups in this domain (or a specified domain if provided)
     """
-    with open(nighthawk.script_resource(f"SA/netgroup/netgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/netgroup/netgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     domain = ""
@@ -365,7 +365,7 @@ def netGroupListMembers(params, info):
     """
     Lists members of the specified domain group
     """
-    with open(nighthawk.script_resource(f"SA/netgroup/netgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/netgroup/netgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     group = ""
@@ -419,7 +419,7 @@ def netLocalGroupList(params, info):
     """
     Lists groups in the local server (or specified server if given)
     """
-    with open(nighthawk.script_resource(f"SA/netlocalgroup/netlocalgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/netlocalgroup/netlocalgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     server = ""
@@ -467,7 +467,7 @@ def netLocalGroupListMembers(params, info):
     """
     Lists members of the specified local group
     """
-    with open(nighthawk.script_resource(f"SA/netlocalgroup/netlocalgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/netlocalgroup/netlocalgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     group = ""
@@ -521,7 +521,7 @@ def netLocalGroupListMembers2(params, info):
     """
     Lists members of the specified local group (bofhound-compatible output)
     """
-    with open(nighthawk.script_resource(f"SA/netlocalgroup2/netlocalgroup2.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/netlocalgroup2/netlocalgroup2.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     group = ""
@@ -575,7 +575,7 @@ def reg_query(params, info):
     """
     Queries a registry key or value (optionally remote).
     """
-    with open(nighthawk.script_resource(f"SA/reg_query/reg_query.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/reg_query/reg_query.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     if len(params) < 2:
@@ -668,7 +668,7 @@ def reg_query_recursive(params, info):
     """
     Recursively queries registry keys (optionally remote).
     """
-    with open(nighthawk.script_resource(f"SA/reg_query/reg_query.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/reg_query/reg_query.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     if len(params) < 2:
@@ -753,7 +753,7 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - enumLocalSessions
 
 def enumlocalsessions(params, info):
-    with open(nighthawk.script_resource(f"SA/enumlocalsessions/enumlocalsessions.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/enumlocalsessions/enumlocalsessions.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     packer = Packer()
@@ -794,7 +794,7 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - probe
 
 def probe(params, info):
-    with open(nighthawk.script_resource(f"SA/probe/probe.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/probe/probe.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     port = 0
@@ -852,7 +852,7 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - scshell64
 
 def scshell64(params, info):
-    with open(nighthawk.script_resource(f"SCShell-master/CS-BOF/scshellbof.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SCShell-master/CS-BOF/scshellbof.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
     # $target, $service, "C:\\ $+ $exepath"
@@ -931,7 +931,7 @@ def add_machine_account(params, info):
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"SA/AddMachineAccount/AddMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/MachineAccount/AddMachineAccount/AddMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing AddMachineAccount BOF")
     api.execute_bof(
@@ -948,7 +948,7 @@ def add_machine_account(params, info):
 
 nighthawk.register_command(
     add_machine_account,
-    "add-machine-account",
+    "add_machine_account",
     "BOF - Add a computer account to the Active Directory domain. (avantguard script)",
     "BOF - Add a computer account to the Active Directory domain. (avantguard script)",
     """add_machine_account <computername> <password>
@@ -975,7 +975,7 @@ def del_machine_account(params, info):
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"SA/DelMachineAccount/DelMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/MachineAccount/DelMachineAccount/DelMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing DelMachineAccount BOF")
     api.execute_bof(
@@ -992,7 +992,7 @@ def del_machine_account(params, info):
 
 nighthawk.register_command(
     del_machine_account,
-    "del-machine-account",
+    "del_machine_account",
     "BOF - Remove a computer account from the Active Directory domain. (avantguard script)",
     "BOF - Remove a computer account from the Active Directory domain. (avantguard script)",
     """del_machine_account <computername>
@@ -1013,7 +1013,7 @@ def get_machine_account_quota(params, info):
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"SA/GetMachineAccountQuota/GetMachineAccountQuota.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/MachineAccount/GetMachineAccountQuota/GetMachineAccountQuota.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing GetMachineAccountQuota BOF")
     api.execute_bof(
@@ -1030,7 +1030,7 @@ def get_machine_account_quota(params, info):
 
 nighthawk.register_command(
     get_machine_account_quota,
-    "get-machine-account-quota",
+    "get_machine_account_quota",
     "BOF - Read the MachineAccountQuota value from the Active Directory domain. (avantguard script)",
     "BOF - Read the MachineAccountQuota value from the Active Directory domain. (avantguard script)",
     """get_machine_account_quota
