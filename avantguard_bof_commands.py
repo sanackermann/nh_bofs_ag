@@ -1184,8 +1184,8 @@ def autologon_check(params, info):
 nighthawk.register_command(
     autologon_check,
     "autologon_check",
-    "BOF - Check for stored Autologon credentials in registry.",
-    "BOF - Check for stored Autologon credentials in registry.",
+    "BOF - Check for stored Autologon credentials in registry. (avantguard script)",
+    "BOF - Check for stored Autologon credentials in registry. (avantguard script)",
     """autologon_check
     Summary: Checks the Winlogon registry key for stored autologon credentials. If AutoAdminLogon=1 and DefaultPassword is set, credentials are exposed.
 
@@ -1234,8 +1234,8 @@ def credential_manager_check(params, info):
 nighthawk.register_command(
     credential_manager_check,
     "credential_manager_check",
-    "BOF - Enumerate credentials from Windows Credential Manager.",
-    "BOF - Enumerate credentials from Windows Credential Manager.",
+    "BOF - Enumerate credentials from Windows Credential Manager. (avantguard script)",
+    "BOF - Enumerate credentials from Windows Credential Manager. (avantguard script)",
     """credential_manager_check
     Summary: Enumerates all stored credentials in Windows Credential Manager for the current user context.
     Shows target, username, and password.
@@ -1286,8 +1286,8 @@ def hijackable_path_check(params, info):
 nighthawk.register_command(
     hijackable_path_check,
     "hijackable_path_check",
-    "BOF - Check for writable directories in system PATH.",
-    "BOF - Check for writable directories in system PATH.",
+    "BOF - Check for writable directories in system PATH. (avantguard script)",
+    "BOF - Check for writable directories in system PATH. (avantguard script)",
     """hijackable_path_check
     Summary: Enumerates the system PATH environment variable and checks each directory for write permissions. 
     Writable directories in PATH can be abused for DLL hijacking or binary planting.
@@ -1337,8 +1337,8 @@ def modifiable_autorun_check(params, info):
 nighthawk.register_command(
     modifiable_autorun_check,
     "modifiable_autorun_check",
-    "BOF - Check for modifiable autorun executables.",
-    "BOF - Check for modifiable autorun executables.",
+    "BOF - Check for modifiable autorun executables. (avantguard script)",
+    "BOF - Check for modifiable autorun executables. (avantguard script)",
     """modifiable_autorun_check
     Summary: Enumerates autorun registry keys and checks if the referenced executables are writable by the current user.
 
@@ -1389,8 +1389,8 @@ def token_privileges_check(params, info):
 nighthawk.register_command(
     token_privileges_check,
     "token_privileges_check",
-    "BOF - Enumerate current token privileges.",
-    "BOF - Enumerate current token privileges.",
+    "BOF - Enumerate current token privileges. (avantguard script)",
+    "BOF - Enumerate current token privileges. (avantguard script)",
     """token_privileges_check
     Summary: Enumerates all privileges for the current process token and shows their enabled/disabled status.
     Usage: token_privileges_check
@@ -1436,8 +1436,8 @@ def unquoted_svc_path_check(params, info):
 nighthawk.register_command(
     unquoted_svc_path_check,
     "unquoted_svc_path_check",
-    "BOF - Check for Unquoted Service Paths vulnerability.",
-    "BOF - Check for Unquoted Service Paths vulnerability.",
+    "BOF - Check for Unquoted Service Paths vulnerability. (avantguard script)",
+    "BOF - Check for Unquoted Service Paths vulnerability. (avantguard script)",
     """unquoted_svc_path_check
     Summary: Enumerates Windows services and checks for unquoted paths 
     containing spaces. These can be exploited for privilege escalation.
@@ -1489,8 +1489,8 @@ def powershell_history_check(params, info):
 nighthawk.register_command(
     powershell_history_check,
     "powershell_history_check",
-    "BOF - Check for PowerShell history file.",
-    "BOF - Check for PowerShell history file.",
+    "BOF - Check for PowerShell history file. (avantguard script)",
+    "BOF - Check for PowerShell history file. (avantguard script)",
     """powershell_history_check
     Summary: Checks if the PowerShell PSReadLine history file exists. 
     This file may contain sensitive commands, credentials, or secrets.
@@ -1540,8 +1540,8 @@ def uac_status_check(params, info):
 nighthawk.register_command(
     uac_status_check,
     "uac_status_check",
-    "BOF - Check UAC status, integrity level, and admin membership.",
-    "BOF - Check UAC status, integrity level, and admin membership.",
+    "BOF - Check UAC status, integrity level, and admin membership. (avantguard script)",
+    "BOF - Check UAC status, integrity level, and admin membership. (avantguard script)",
     """uac_status_check
     Summary: Checks UAC registry settings, current process integrity level, 
     and local administrator group membership.
@@ -1595,8 +1595,8 @@ def modifiable_svc_check(params, info):
 nighthawk.register_command(
     modifiable_svc_check,
     "modifiable_svc_check",
-    "BOF - Check for services with modifiable permissions.",
-    "BOF - Check for services with modifiable permissions.",
+    "BOF - Check for services with modifiable permissions. (avantguard script)",
+    "BOF - Check for services with modifiable permissions. (avantguard script)",
     """modifiable_svc_check
     Summary: Enumerates all Windows services and checks their security
     descriptors to find services that the current user can modify.
@@ -1616,5 +1616,73 @@ nighthawk.register_command(
 
     THIS IS AN AVANTGUARD SCRIPT""",
     "modifiable_svc_check"
+)
+
+def priv_check_all(params, info):
+    """
+    Perform all checks in the PrivCheck BOF collection.
+    """
+    nighthawk.console_write(CONSOLE_INFO, "executing all checks in PrivCheck BOF collection")
+
+    if !always_install_elevated_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing AlwaysInstallElevated BOF")
+        return False
+    
+    if !autologon_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing Autologon BOF")
+        return False
+    
+    if !credential_manager_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing CredentialManagerCheck BOF")
+        return False
+    
+    if !hijackable_path_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing HijackablePathCheck BOF")
+        return False
+        
+    if !token_privileges_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing TokenPrivilegesCheck BOF")
+        return False
+        
+    if !unquoted_svc_path_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing UnquotedSVCPathCheck BOF")
+        return False
+        
+    if !powershell_history_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing PowerShellHistoryCheck BOF")
+        return False
+
+    if !uac_status_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing UACStatusCheck BOF")
+        return False
+
+    if !modifiable_svc_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, f"Error executing ModifiableSVCCheck BOF")
+        return False
+
+    nighthawk.console_write(CONSOLE_INFO, "all PrivCheck checks executed successfully")
+
+nighthawk.register_command(
+    priv_check_all,
+    "priv_check_all",
+    "BOF - Perform all checks in the PrivCheck BOF collection. (avantguard script)",
+    "BOF - Perform all checks in the PrivCheck BOF collection. (avantguard script)",
+    """priv_check_all
+    Summary: Performs all checks in the PrivCheck BOF collection.
+
+    Executes all privilege escalation checks in sequence:
+    - AlwaysInstallElevatedCheck
+    - AutologonCheck
+    - CredentialManagerCheck
+    - HijackablePathCheck
+    - ModifiableAutorunCheck
+    - ModifiableSVCCheck
+    - TokenPrivilegesCheck
+    - UnquotedSVCPathCheck
+    - PowerShellHistoryCheck
+    - UACStatusCheck
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "priv_check_all"
 )
 # endregion
