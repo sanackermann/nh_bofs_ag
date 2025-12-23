@@ -1108,17 +1108,17 @@ def always_install_elevated_check(params, info):
         return False
         
     # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/AlwaysInstallElevated/AlwaysInstallElevated.{info.Agent.ProcessArch}.o")
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/AlwaysInstallElevatedCheck/AlwaysInstallElevatedCheck.{info.Agent.ProcessArch}.o")
 
     try:
         with open(bof_path, 'rb') as f:
             bof = f.read()
     except FileNotFoundError:
         nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
+        return False
     nighthawk.console_write(CONSOLE_INFO, "executing AlwaysInstallElevated BOF")
     api.execute_bof(
-        f"AlwaysInstallElevated.{info.Agent.ProcessArch}.o",
+        f"AlwaysInstallElevatedCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
         "go",
@@ -1128,6 +1128,7 @@ def always_install_elevated_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     always_install_elevated_check,
@@ -1166,7 +1167,7 @@ def autologon_check(params, info):
             bof = f.read()
     except FileNotFoundError:
         nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
+        return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing AutologonCheck BOF")
     api.execute_bof(
@@ -1180,6 +1181,7 @@ def autologon_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     autologon_check,
@@ -1230,6 +1232,7 @@ def credential_manager_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     credential_manager_check,
@@ -1282,6 +1285,7 @@ def hijackable_path_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     hijackable_path_check,
@@ -1333,6 +1337,7 @@ def modifiable_autorun_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     modifiable_autorun_check,
@@ -1385,6 +1390,7 @@ def token_privileges_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     token_privileges_check,
@@ -1432,6 +1438,7 @@ def unquoted_svc_path_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     unquoted_svc_path_check,
@@ -1485,6 +1492,7 @@ def powershell_history_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     powershell_history_check,
@@ -1536,6 +1544,7 @@ def uac_status_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     uac_status_check,
@@ -1591,6 +1600,7 @@ def modifiable_svc_check(params, info):
         "",
         show_in_console=True
     )
+    return True
 
 nighthawk.register_command(
     modifiable_svc_check,
@@ -1661,6 +1671,7 @@ def priv_check_all(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "all PrivCheck checks executed successfully")
+    return True
 
 nighthawk.register_command(
     priv_check_all,
