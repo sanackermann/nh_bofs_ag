@@ -1624,40 +1624,40 @@ def priv_check_all(params, info):
     """
     nighthawk.console_write(CONSOLE_INFO, "executing all checks in PrivCheck BOF collection")
 
-    if !always_install_elevated_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing AlwaysInstallElevated BOF")
+    if not always_install_elevated_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing AlwaysInstallElevated BOF")
         return False
     
-    if !autologon_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing Autologon BOF")
+    if not autologon_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing Autologon BOF")
         return False
     
-    if !credential_manager_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing CredentialManagerCheck BOF")
+    if not credential_manager_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing CredentialManagerCheck BOF")
         return False
     
-    if !hijackable_path_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing HijackablePathCheck BOF")
+    if not hijackable_path_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing HijackablePathCheck BOF")
         return False
         
-    if !token_privileges_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing TokenPrivilegesCheck BOF")
+    if not token_privileges_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing TokenPrivilegesCheck BOF")
         return False
         
-    if !unquoted_svc_path_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing UnquotedSVCPathCheck BOF")
+    if not unquoted_svc_path_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing UnquotedSVCPathCheck BOF")
         return False
         
-    if !powershell_history_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing PowerShellHistoryCheck BOF")
+    if not powershell_history_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing PowerShellHistoryCheck BOF")
         return False
 
-    if !uac_status_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing UACStatusCheck BOF")
+    if not uac_status_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing UACStatusCheck BOF")
         return False
 
-    if !modifiable_svc_check(params, info):
-        nighthawk.console_write(CONSOLE_ERROR, f"Error executing ModifiableSVCCheck BOF")
+    if not modifiable_svc_check(params, info):
+        nighthawk.console_write(CONSOLE_ERROR, "Error executing ModifiableSVCCheck BOF")
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "all PrivCheck checks executed successfully")
