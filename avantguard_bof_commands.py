@@ -1093,3 +1093,528 @@ nighthawk.register_command(
 )
 
 # endregion
+
+# region PrivCheck
+
+def always_install_elevated_check(params, info):
+    """
+    Check for AlwaysInstallElevated privilege escalation vulnerability.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+        
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/AlwaysInstallElevated/AlwaysInstallElevated.{info.Agent.ProcessArch}.o")
+
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+    nighthawk.console_write(CONSOLE_INFO, "executing AlwaysInstallElevated BOF")
+    api.execute_bof(
+        f"AlwaysInstallElevated.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    always_install_elevated_check,
+    "always_install_elevated_check",
+    "BOF - Check for AlwaysInstallElevated privilege escalation vulnerability. (avantguard script)",
+    "BOF - Check for AlwaysInstallElevated privilege escalation vulnerability. (avantguard script)",
+    """always_install_elevated_check
+    Summary: Checks if AlwaysInstallElevated is enabled in both HKCU and HKLM. This misconfiguration allows any user to install MSI packages with SYSTEM privileges.
+
+    Vulnerability Conditions:
+    HKCU\Software\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated = 1
+    HKLM\Software\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated = 1
+    Both keys must be set to 1 for exploitation.
+    Usage: always_install_elevated_check
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "always_install_elevated_check"
+)
+
+def autologon_check(params, info):
+    """
+    Check for stored Autologon credentials in registry.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Construct the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/AutologonCheck/AutologonCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing AutologonCheck BOF")
+    api.execute_bof(
+        f"AutologonCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    autologon_check,
+    "autologon_check",
+    "BOF - Check for stored Autologon credentials in registry.",
+    "BOF - Check for stored Autologon credentials in registry.",
+    """autologon_check
+    Summary: Checks the Winlogon registry key for stored autologon credentials. If AutoAdminLogon=1 and DefaultPassword is set, credentials are exposed.
+
+    Registry Location:
+    HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    Usage: autologon_check
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "autologon_check"
+)
+
+def credential_manager_check(params, info):
+    """
+    Enumerate credentials from Windows Credential Manager.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/CredentialManagerCheck/CredentialManagerCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing CredentialManagerCheck BOF")
+    api.execute_bof(
+        f"CredentialManagerCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    credential_manager_check,
+    "credential_manager_check",
+    "BOF - Enumerate credentials from Windows Credential Manager.",
+    "BOF - Enumerate credentials from Windows Credential Manager.",
+    """credential_manager_check
+    Summary: Enumerates all stored credentials in Windows Credential Manager for the current user context.
+    Shows target, username, and password.
+
+    Note:
+    Only enumerates credentials for the current user/token.
+    Running as SYSTEM will not show user credentials.
+    Usage: credential_manager_check
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "credential_manager_check"
+)
+
+def hijackable_path_check(params, info):
+    """
+    Check for writable directories in system PATH.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/HijackablePathCheck/HijackablePathCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing HijackablePathCheck BOF")
+    api.execute_bof(
+        f"HijackablePathCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    hijackable_path_check,
+    "hijackable_path_check",
+    "BOF - Check for writable directories in system PATH.",
+    "BOF - Check for writable directories in system PATH.",
+    """hijackable_path_check
+    Summary: Enumerates the system PATH environment variable and checks each directory for write permissions. 
+    Writable directories in PATH can be abused for DLL hijacking or binary planting.
+
+    Registry Location:
+    HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\Path
+    Usage: hijackable_path_check
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "hijackable_path_check"
+)
+
+def modifiable_autorun_check(params, info):
+    """
+    Check for modifiable autorun executables.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/ModifiableAutorunCheck/ModifiableAutorunCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing ModifiableAutorunCheck BOF")
+    api.execute_bof(
+        f"ModifiedAutorunCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    modifiable_autorun_check,
+    "modifiable_autorun_check",
+    "BOF - Check for modifiable autorun executables.",
+    "BOF - Check for modifiable autorun executables.",
+    """modifiable_autorun_check
+    Summary: Enumerates autorun registry keys and checks if the referenced executables are writable by the current user.
+
+    Checked Locations:
+    HKLM and HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    HKLM and HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
+    HKLM and HKCU:\SOFTWARE\Wow6432Node\...\Run (x64 systems)
+    Usage: modifiable_autorun_check
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "modifiable_autorun_check"
+)
+
+def token_privileges_check(params, info):
+    """
+    Enumerate current token privileges.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/TokenPrivilegesCheck/TokenPrivilegesCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing TokenPrivilegesCheck BOF")
+    api.execute_bof(
+        f"TokenPrivilegesCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    token_privileges_check,
+    "token_privileges_check",
+    "BOF - Enumerate current token privileges.",
+    "BOF - Enumerate current token privileges.",
+    """token_privileges_check
+    Summary: Enumerates all privileges for the current process token and shows their enabled/disabled status.
+    Usage: token_privileges_check
+    
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "token_privileges_check"
+)
+
+def unquoted_svc_path_check(params, info):
+    """
+    Check for Unquoted Service Paths vulnerability.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/UnquotedSVCPathCheck/UnquotedSVCPathCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing UnquotedSVCPathCheck BOF")
+    api.execute_bof(
+        f"UnquotedSVCPathCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    unquoted_svc_path_check,
+    "unquoted_svc_path_check",
+    "BOF - Check for Unquoted Service Paths vulnerability.",
+    "BOF - Check for Unquoted Service Paths vulnerability.",
+    """unquoted_svc_path_check
+    Summary: Enumerates Windows services and checks for unquoted paths 
+    containing spaces. These can be exploited for privilege escalation.
+
+    Vulnerability Conditions:
+    - Service path contains spaces
+    - Path is not enclosed in quotes
+    - Path is not in System32/SysWOW64
+    Usage: unquoted_svc_path_check
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "unquoted_svc_path_check"
+)
+
+def powershell_history_check(params, info):
+    """
+    Check for PowerShell history file.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/PowerShellHistoryCheck/PowerShellHistoryCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing PowerShellHistoryCheck BOF")
+    api.execute_bof(
+        f"PowerShellHistoryCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    powershell_history_check,
+    "powershell_history_check",
+    "BOF - Check for PowerShell history file.",
+    "BOF - Check for PowerShell history file.",
+    """powershell_history_check
+    Summary: Checks if the PowerShell PSReadLine history file exists. 
+    This file may contain sensitive commands, credentials, or secrets.
+
+    File Location:
+    %APPDATA%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+    Usage: powershell_history_check
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "powershell_history_check"
+)
+
+def uac_status_check(params, info):
+    """
+    Check UAC status, integrity level, and admin membership.
+    """
+
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/UACStatusCheck/UACStatusCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing UACStatusCheck BOF")
+    api.execute_bof(
+        f"UACStatusCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    uac_status_check,
+    "uac_status_check",
+    "BOF - Check UAC status, integrity level, and admin membership.",
+    "BOF - Check UAC status, integrity level, and admin membership.",
+    """uac_status_check
+    Summary: Checks UAC registry settings, current process integrity level, 
+    and local administrator group membership.
+
+    Checks Performed:
+    - EnableLUA (UAC enabled/disabled)
+    - ConsentPromptBehaviorAdmin (UAC prompt level)
+    - PromptOnSecureDesktop
+    - Token Integrity Level
+    - Local Administrators group membership
+    Usage: uac_status_check
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "uac_status_check"
+)
+
+def modifiable_svc_check(params, info):
+    """
+    Check for services with modifiable permissions.
+    """
+    
+    packer = Packer()
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    # Constructing the path to the BOF file
+    bof_path = nighthawk.script_resource(f"bin/PrivCheck/ModifiableSVCCheck/ModifiableSVCCheck.{info.Agent.ProcessArch}.o")
+    
+    try:
+        with open(bof_path, 'rb') as f:
+            bof = f.read()
+    except FileNotFoundError:
+        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
+        return
+
+    nighthawk.console_write(CONSOLE_INFO, "executing ModifiableSVCCheck BOF")
+    api.execute_bof(
+        f"ModifiableSVCCheck.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        show_in_console=True
+    )
+
+nighthawk.register_command(
+    modifiable_svc_check,
+    "modifiable_svc_check",
+    "BOF - Check for services with modifiable permissions.",
+    "BOF - Check for services with modifiable permissions.",
+    """modifiable_svc_check
+    Summary: Enumerates all Windows services and checks their security
+    descriptors to find services that the current user can modify.
+
+    Checked Permissions:
+    - SERVICE_CHANGE_CONFIG
+    - WRITE_DAC
+    - WRITE_OWNER
+    - GENERIC_ALL
+    - GENERIC_WRITE
+    - SERVICE_ALL_ACCESS
+
+    Exploitation:
+    If a service is modifiable, you can change its binary path 
+    to point to a malicious executable for privilege escalation.
+    Usage: modifiable_svc_check
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "modifiable_svc_check"
+)
+# endregion
