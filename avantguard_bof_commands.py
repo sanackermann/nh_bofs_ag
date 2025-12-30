@@ -1,22 +1,33 @@
+# pyright: reportUndefinedVariable=false
 import json
 import base64
+import os 
+import tempfile
+
+# region MISC
 
 def replace_quotes(s):
         return s.strip().strip('"').strip("'")
 
-def write_output(notification, file_name: str, output_to_console: bool):
+def write_output(notification, file_name: str = "", output_to_console: bool = True, open_in_notepad: bool = False):
     notification = json.loads(notification)
-    if file_name != "":
+    if open_in_notepad and file_name == "":
+        f = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".txt", delete=False)
+        file_name = f.name
+    elif file_name != "":
         f = open(file_name, "w", encoding="utf-8")
     for output in notification['CommandResponse']['ExecutionResult']['Outputs']:
         line = f"{base64.b64decode(output['buffer']).decode('utf-8', errors='replace')}"
         if output_to_console:
-            nighthawk.console_write(CONSOLE_INFO, line )
+            nighthawk.console_write(CONSOLE_INFO, line)
         if file_name != "":
             f.write(line)
     
     if file_name != "":
         f.close()
+    if open_in_notepad: os.startfile(file_name)
+
+# endregion
 
 # region BOF - ldapsearch
 def ldapsearch_param(params, info):
@@ -31,6 +42,7 @@ def ldapsearch_param(params, info):
     skip = False
     save_to_file = ""
     output_to_console = True
+    open_in_notepad = False
 
     # Parse args
     if len(params) > 0:
@@ -65,9 +77,11 @@ def ldapsearch_param(params, info):
                 i += 1
             elif option == "--suppress-console-output":
                 output_to_console = False
+            elif option == "--notepad":
+                open_in_notepad = True
             else:
                 nighthawk.console_write(CONSOLE_ERROR, f"Unknown argument: {arg}")
-                nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]")
+                nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file] [--notepad]")
                 return None
             i += 1
 
@@ -85,20 +99,20 @@ def ldapsearch_param(params, info):
 
     # You can now call your static function
     # static_call(packed_params, info)
-    return packed_params, save_to_file, output_to_console
+    return packed_params, save_to_file, open_in_notepad, output_to_console
 
 def ldapsearch(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f:
+    with open(nighthawk.script_resource(f"bin/SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f: 
         bof = f.read()
-    packed_params, save_to_file, output_to_console = ldapsearch_param(params, info)
+    packed_params, save_to_file, open_in_notepad, output_to_console = ldapsearch_param(params, info)
     if type(packed_params) != bytes:
         return False
-    nighthawk.console_write(CONSOLE_INFO, "executing ldapserach BOF")
+    nighthawk.console_write(CONSOLE_INFO, "executing ldapserach BOF") 
     notification = api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification, save_to_file, output_to_console)
+    write_output(notification, save_to_file, output_to_console, open_in_notepad)
     nighthawk.console_write(CONSOLE_INFO, "Finished executing ldapsearch BOF")
 
-nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file]
+nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file] [--notepad]
 	with :
 		query => the LDAP query to be performed
 		--attributes [comma_separated_attributes] => the attributes to retrieve (default: *)
@@ -107,8 +121,9 @@ nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search 
 		--hostname [hostname] => hostname or IP to perform the LDAP connection on (default: automatic DC resolution)
 		--dn [dn] => the LDAP query base
 		--ldaps => use of ldaps
-                --save-to-file => file to write output to
+                --save-to-file [filename] => file to write output to
                 --suppress-console-output => suppress output to Nighthawk console
+                --notepad => opens in an notepad to search the output
 Important - To add in ACLs so Bloodhound can draw relationships between objects (see external BofHound tool), add nTSecurityDescriptor in the attributes list, like so:
 ldapsearch <query> --attributes *,ntsecuritydescriptor ...
 Useful queries (queries are just an example, edit where necessary to make it OPSEC safe):
@@ -139,8 +154,8 @@ def netshares(params, info):
     if type(packed_params) != bytes:
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing netshares BOF")
-    api.execute_bof(f"netshares.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", show_in_console=True)
-
+    notification = api.execute_bof(f"netshares.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+    write_output(notification)
 
 nighthawk.register_command(netshares, "netshares", "BOF - list shares on local or remote computer (avantguard script)" , "BOF - list shares on local or remote computer (avantguard script)", """netshares <\\\\computername> <--admin>
 with --admin it finds more info then standard netshares but requires admin
@@ -155,24 +170,28 @@ def adcs_enum(params, info):
     with open(nighthawk.script_resource(f"bin/SA/adcs_enum/adcs_enum.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     domain = ""
-    if len(params) > 0:
-        domain = params[0]
+    open_in_notepad = False
+    for param in params:
+        if param == "--notepad":
+            open_in_notepad = True
+        else:
+            domain = param
     packer = Packer()
     packer.addwstr(domain)
     packed_params = packer.getbuffer()
     if type(packed_params) != bytes:
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing adcs_enum BOF")
-    api.execute_bof(f"adcs_enum.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", show_in_console=True)
+    notification = api.execute_bof(f"adcs_enum.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+    write_output(notification, open_in_notepad=open_in_notepad)
 
-
-nighthawk.register_command(adcs_enum, "adcs_enum", "BOF - Enumerates CAs and templates in the AD using Win32 functions (avantguard script)" , "BOF - Enumerates CAs and templates in the AD using Win32 functions (avantguard script)", """adcs_enum <domain>
+nighthawk.register_command(adcs_enum, "adcs_enum", "BOF - Enumerates CAs and templates in the AD using Win32 functions (avantguard script)" , "BOF - Enumerates CAs and templates in the AD using Win32 functions (avantguard script)", """adcs_enum <domain> [--notepad]
 Summary: This command enumerates the certificate authorities and certificate 
          types (templates) in the Acitive Directory Certificate Services using
          undocumented Win32 functions. It displays basic information as well 
          as the CA cert, flags, permissions, and similar information for the 
          templates.
-Usage:   adcs_enum (domain)
+Usage:   adcs_enum (domain) [--notepad]
 		 domain		Optional. Specified domain otherwise uses current domain.
 
 THIS IS AN AVANTGUARD SCRIPT""", "adcs_enum CONTOSO.com")
@@ -185,6 +204,11 @@ def adcs_enum_com(params, info):
     with open(nighthawk.script_resource(f"bin/SA/adcs_enum_com/adcs_enum_com.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
+    open_in_notepad = False
+    for param in params:
+        if param == "--notepad":
+            open_in_notepad = True
+
     packer = Packer()
     packed_params = packer.getbuffer()  # no parameters for this one
 
@@ -192,21 +216,21 @@ def adcs_enum_com(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing adcs_enum_com BOF")
-    api.execute_bof(f"adcs_enum_com.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", show_in_console=True)
-
+    notification = api.execute_bof(f"adcs_enum_com.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+    write_output(notification, open_in_notepad=open_in_notepad)
 
 nighthawk.register_command(
     adcs_enum_com,
     "adcs_enum_com",
     "BOF - Enumerates CAs and templates in the AD using ICertConfig COM object (avantguard script)",
     "BOF - Enumerates CAs and templates in the AD using ICertConfig COM object (avantguard script)",
-    """adcs_enum_com
+    """adcs_enum_com [--notepad]
 Summary: This command enumerates the certificate authorities and certificate 
          types (templates) in the Active Directory Certificate Services using 
          the ICertConfig, ICertRequest, and IX509CertificateTemplate COM 
          objects. It displays basic information as well as the CA cert, flags, 
          permissions, and similar information for the templates.
-Usage:   adcs_enum_com
+Usage:   adcs_enum_com [--notepad]
 
 THIS IS AN AVANTGUARD SCRIPT""",
     "adcs_enum_com"
@@ -220,6 +244,11 @@ def adcs_enum_com2(params, info):
     with open(nighthawk.script_resource(f"bin/SA/adcs_enum_com2/adcs_enum_com2.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
 
+    open_in_notepad = False
+    for param in params:
+        if param == "--notepad":
+            open_in_notepad = True
+
     packer = Packer()
     packed_params = packer.getbuffer()  # no parameters for this one either
 
@@ -227,15 +256,15 @@ def adcs_enum_com2(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing adcs_enum_com2 BOF")
-    api.execute_bof(f"adcs_enum_com2.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", show_in_console=True)
-
+    notification = api.execute_bof(f"adcs_enum_com2.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+    write_output(notification, open_in_notepad=open_in_notepad)
 
 nighthawk.register_command(
     adcs_enum_com2,
     "adcs_enum_com2",
     "BOF - Enumerates CAs and templates in the AD using IX509PolicyServerListManager COM object (avantguard script)",
     "BOF - Enumerates CAs and templates in the AD using IX509PolicyServerListManager COM object (avantguard script)",
-    """adcs_enum_com2
+    """adcs_enum_com2 [--notepad]
 Summary: This command enumerates the certificate authorities and certificate 
          types (templates) in the Active Directory Certificate Services using 
          the IX509PolicyServerListManager, IX509PolicyServerUrl, 
@@ -243,7 +272,7 @@ Summary: This command enumerates the certificate authorities and certificate
          IX509CertificateTemplate COM objects. It displays basic information as
          well as the CA cert, flags, permissions, and similar information for
          the templates.
-Usage:   adcs_enum_com2
+Usage:   adcs_enum_com2 [--notepad]
 
 THIS IS AN AVANTGUARD SCRIPT""",
     "adcs_enum_com2"
@@ -261,8 +290,8 @@ def routeprint(params, info):
     if type(packed_params) != bytes:
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing routeprint BOF")
-    api.execute_bof(f"routeprint.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", show_in_console=True)
-
+    notification = api.execute_bof(f"routeprint.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
+    write_output(notification)
 
 nighthawk.register_command(routeprint, "routeprint", "BOF - prints ipv4 routes on the machine (avantguard script)", "BOF - prints ipv4 routes on the machine (avantguard script)", """prints ipv4 routes on the machine
 
@@ -283,7 +312,7 @@ def ipconfig(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing ipconfig BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"ipconfig.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -292,9 +321,9 @@ def ipconfig(params, info):
         0,
         True,
         "T1016",  # matches the MITRE technique from original
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     ipconfig,
@@ -321,8 +350,12 @@ def netGroupList(params, info):
         bof = f.read()
 
     domain = ""
-    if len(params) > 0:
-        domain = params[0]
+    open_in_notepad = False
+    for param in params:
+        if param == "--notepad":
+            open_in_notepad = True
+        else:
+            domain = param
 
     packer = Packer()
     packer.addshort(0)         # type = 0 (list groups)
@@ -334,7 +367,7 @@ def netGroupList(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing netGroupList BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"netgroup.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -343,18 +376,18 @@ def netGroupList(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification, open_in_notepad=open_in_notepad)
 
 nighthawk.register_command(
     netGroupList,
     "netGroupList",
     "BOF - List Groups in this domain (or specified domain if given) (avantguard script)",
     "BOF - List Groups in this domain (or specified domain if given) (avantguard script)",
-    """netGroupList <opt: domainname>
+    """netGroupList <opt: domainname> [--notepad]
 Summary: Lists all groups in this domain or the specified domain.
-Usage:   netGroupList [domainname]
+Usage:   netGroupList [domainname] [--notepad]
 
 THIS IS AN AVANTGUARD SCRIPT""",
     "netGroupList CONTOSO.com"
@@ -370,10 +403,14 @@ def netGroupListMembers(params, info):
 
     group = ""
     domain = ""
-    if len(params) > 0:
-        group = params[0]
-    if len(params) > 1:
-        domain = params[1]
+    for param in params:
+        if param == "--notepad":
+            open_in_notepad = True
+        else:
+            if group == "":
+                group = param
+            else:
+                domain = param
 
     packer = Packer()
     packer.addshort(1)         # type = 1 (list members)
@@ -385,7 +422,7 @@ def netGroupListMembers(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing netGroupListMembers BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"netgroup.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -394,8 +431,9 @@ def netGroupListMembers(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification, open_in_notepad=open_in_notepad)
 
 
 nighthawk.register_command(
@@ -403,9 +441,9 @@ nighthawk.register_command(
     "netGroupListMembers",
     "BOF - List the members of the specified group in this domain (avantguard script)",
     "BOF - List the members of the specified group in this domain (avantguard script)",
-    """netGroupListMembers <Group Name> <opt: domainname>
+    """netGroupListMembers <Group Name> <opt: domainname> [--notepad]
 Summary: Lists the members of the specified group in this domain or another domain.
-Usage:   netGroupListMembers "Domain Admins" CONTOSO.com
+Usage:   netGroupListMembers "Domain Admins" CONTOSO.com [--notepad]
 
 THIS IS AN AVANTGUARD SCRIPT""",
     "netGroupListMembers \"Domain Admins\" CONTOSO.com"
@@ -436,7 +474,7 @@ def netLocalGroupList(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing netLocalGroupList BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"netlocalgroup.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -445,9 +483,9 @@ def netLocalGroupList(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     netLocalGroupList,
@@ -461,7 +499,6 @@ Usage:   netLocalGroupList SERVER01
 THIS IS AN AVANTGUARD SCRIPT""",
     "netLocalGroupList SERVER01"
 )
-
 
 def netLocalGroupListMembers(params, info):
     """
@@ -487,7 +524,7 @@ def netLocalGroupListMembers(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing netLocalGroupListMembers BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"netlocalgroup.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -496,9 +533,9 @@ def netLocalGroupListMembers(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     netLocalGroupListMembers,
@@ -540,7 +577,7 @@ def netLocalGroupListMembers2(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing netLocalGroupListMembers2 BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"netlocalgroup2.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -549,9 +586,9 @@ def netLocalGroupListMembers2(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     netLocalGroupListMembers2,
@@ -629,7 +666,7 @@ def reg_query(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing reg_query BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"reg_query.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -638,9 +675,9 @@ def reg_query(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     reg_query,
@@ -662,7 +699,6 @@ If a value name is not specified, the key itself is enumerated.
 THIS IS AN AVANTGUARD SCRIPT""",
     "reg_query HKLM Software\\Microsoft\\Windows\\CurrentVersion"
 )
-
 
 def reg_query_recursive(params, info):
     """
@@ -714,7 +750,7 @@ def reg_query_recursive(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing reg_query_recursive BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"reg_query.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -723,9 +759,9 @@ def reg_query_recursive(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     reg_query_recursive,
@@ -763,7 +799,7 @@ def enumlocalsessions(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing enumlocalsessions BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"enumlocalsessions.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -771,10 +807,10 @@ def enumlocalsessions(params, info):
         False,
         0,
         True,
-        "T1033",  # matches the MITRE technique from original
-        show_in_console=True
+        "", 
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     enumlocalsessions,
@@ -819,7 +855,7 @@ def probe(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing probe BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"probe.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -827,10 +863,10 @@ def probe(params, info):
         False,
         0,
         True,
-        "T1046",
-        show_in_console=True
+        "",
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     probe,
@@ -846,8 +882,6 @@ THIS IS AN AVANTGUARD SCRIPT""",
 )
 
 # endregion
-
-
 
 # region BOF - scshell64
 
@@ -877,7 +911,7 @@ def scshell64(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing probe BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"scshellbof.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -885,10 +919,10 @@ def scshell64(params, info):
         False,
         0,
         True,
-        "T1569",
-        show_in_console=True
+        "",
+        sync=True
     )
-
+    write_output(notification)
 
 nighthawk.register_command(
     scshell64,
@@ -907,8 +941,6 @@ THIS IS AN AVANTGUARD SCRIPT""",
 )
 
 # endregion
-
-
 
 # region BOF - machine account add/del/get
 
@@ -934,7 +966,7 @@ def add_machine_account(params, info):
     with open(nighthawk.script_resource(f"bin/MachineAccount/AddMachineAccount/AddMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing AddMachineAccount BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"AddMachineAccount.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -943,8 +975,9 @@ def add_machine_account(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
 
 nighthawk.register_command(
     add_machine_account,
@@ -978,7 +1011,7 @@ def del_machine_account(params, info):
     with open(nighthawk.script_resource(f"bin/MachineAccount/DelMachineAccount/DelMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing DelMachineAccount BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"DelMachineAccount.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -987,8 +1020,9 @@ def del_machine_account(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
 
 nighthawk.register_command(
     del_machine_account,
@@ -1016,7 +1050,7 @@ def get_machine_account_quota(params, info):
     with open(nighthawk.script_resource(f"bin/MachineAccount/GetMachineAccountQuota/GetMachineAccountQuota.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing GetMachineAccountQuota BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"GetMachineAccountQuota.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1025,8 +1059,9 @@ def get_machine_account_quota(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
 
 nighthawk.register_command(
     get_machine_account_quota,
@@ -1067,7 +1102,7 @@ def petit_potam(params, info):
     with open(nighthawk.script_resource(f"bin/Exploit/PetitPotam/PetitPotam.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     nighthawk.console_write(CONSOLE_INFO, "executing PetitPotam BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"PetitPotam.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1076,8 +1111,9 @@ def petit_potam(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
 
 nighthawk.register_command(
     petit_potam,
@@ -1117,7 +1153,7 @@ def always_install_elevated_check(params, info):
         nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
         return False
     nighthawk.console_write(CONSOLE_INFO, "executing AlwaysInstallElevated BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"AlwaysInstallElevatedCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1126,8 +1162,9 @@ def always_install_elevated_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1170,7 +1207,7 @@ def autologon_check(params, info):
         return False
 
     nighthawk.console_write(CONSOLE_INFO, "executing AutologonCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"AutologonCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1179,8 +1216,9 @@ def autologon_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1221,7 +1259,7 @@ def credential_manager_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing CredentialManagerCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"CredentialManagerCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1230,8 +1268,9 @@ def credential_manager_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1274,7 +1313,7 @@ def hijackable_path_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing HijackablePathCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"HijackablePathCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1283,8 +1322,9 @@ def hijackable_path_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1326,7 +1366,7 @@ def modifiable_autorun_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing ModifiableAutorunCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"ModifiedAutorunCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1335,8 +1375,9 @@ def modifiable_autorun_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1379,7 +1420,7 @@ def token_privileges_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing TokenPrivilegesCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"TokenPrivilegesCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1388,8 +1429,9 @@ def token_privileges_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1427,7 +1469,7 @@ def unquoted_svc_path_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing UnquotedSVCPathCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"UnquotedSVCPathCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1436,8 +1478,9 @@ def unquoted_svc_path_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1481,7 +1524,7 @@ def powershell_history_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing PowerShellHistoryCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"PowerShellHistoryCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1490,8 +1533,9 @@ def powershell_history_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1533,7 +1577,7 @@ def uac_status_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing UACStatusCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"UACStatusCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1542,8 +1586,9 @@ def uac_status_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
@@ -1589,7 +1634,7 @@ def modifiable_svc_check(params, info):
         return
 
     nighthawk.console_write(CONSOLE_INFO, "executing ModifiableSVCCheck BOF")
-    api.execute_bof(
+    notification = api.execute_bof(
         f"ModifiableSVCCheck.{info.Agent.ProcessArch}.o",
         bof,
         packed_params,
@@ -1598,8 +1643,9 @@ def modifiable_svc_check(params, info):
         0,
         True,
         "",
-        show_in_console=True
+        sync=True
     )
+    write_output(notification)
     return True
 
 nighthawk.register_command(
