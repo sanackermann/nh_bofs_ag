@@ -1,3 +1,4 @@
+# pyright: reportUndefinedVariable=false
 from pathlib import Path
 import hashlib
 

