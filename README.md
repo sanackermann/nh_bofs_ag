@@ -11,7 +11,7 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 1. **Clone the repository** into your Nighthawk BOF directory:
 
    ```bash
-   git clone https://github.com/sanackermann/nh_bofs_ag "C:\tools\nighthawk\release-3.7\Bofs\avantguard"
+   git clone https://github.com/sanackermann/nh_bofs_ag "C:\tools\nighthawk\release-4.1\Bofs\avantguard"
    ```
 
 2. **Load the scripts in Nighthawk:**
@@ -21,7 +21,7 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
    * Select the file:
 
      ```
-     C:\tools\nighthawk\release-3.7\Bofs\avantguard\avantguard_sa_bof_commands.py
+     C:\tools\nighthawk\release-3.7\Bofs\avantguard\avantguard_bof_commands.py
      C:\tools\nighthawk\release-3.7\Bofs\avantguard\avantguard_sql_bof_commands.py
      ```
 
@@ -38,7 +38,7 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 4. **Configure Nighthawk to use the Python DLL:**
 
    Edit the following section in
-   `C:\tools\nighthawk\release-3.7\ThinUI\bin\Release\Nighthawk.xml`
+   `C:\tools\nighthawk\release-4.1\ThinUI\bin\Release\Nighthawk.xml`
    to point to your embedded Python installation:
 
    ```xml
@@ -65,7 +65,7 @@ Each command wraps a compiled `.o` object and uses the `Packer` API to prepare p
 | **netLocalGroupList**             | Lists all local groups on the current or specified server.                                                | `netLocalGroupList [servername]`                                                                                                               |      |     |                       |
 | **netLocalGroupListMembers**      | Lists members of a specified local group on the current or specified server.                              | `netLocalGroupListMembers "<Group Name>" [servername]`                                                                                         |      |     |                       |
 | **netLocalGroupListMembers2**     | Lists members of a specified local group (output compatible with BofHound).                               | `netLocalGroupListMembers2 "<Group Name>" [servername]`                                                                                        |      |     |                       |
-| **reg_query**                     | Queries a registry key or value on the local or a remote host.                                            | `reg_query [hostname] <HKLM                                                                                                                    | HKCU | HKU | HKCR> <path> [value]` |
+| **reg_query**                     | Queries a registry key or value on the local or a remote host.                                            | `reg_query [hostname] <HKLM / HKCU / HKU / HKCR> <path> [value]` |
 | **reg_query_recursive**           | Recursively enumerates a registry key and subkeys (local or remote).                                      | `reg_query_recursive [hostname] <HKLM                                                                                                          | HKCU | HKU | HKCR> <path>`         |
 | **adcs_enum**                     | Enumerates Certificate Authorities (CAs) and certificate templates using Win32 functions.                 | `adcs_enum [domain] [--notepad]`                                                                                                               |      |     |                       |
 | **adcs_enum_com**                 | Enumerates CAs and templates using `ICertConfig`, `ICertRequest`, `IX509CertificateTemplate` COM objects. | `adcs_enum_com [--notepad]`                                                                                                                    |      |     |                       |
