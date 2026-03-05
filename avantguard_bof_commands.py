@@ -91,7 +91,7 @@ def ldapsearch_param(params, info):
     scope = 3
     hostname = ""
     dn = ""
-    ldaps = False
+    ldaps = 0
     skip = False
 
     # Parse args
@@ -121,7 +121,7 @@ def ldapsearch_param(params, info):
                 dn = value
                 i += 1
             elif option == "--ldaps":
-                ldaps = True
+                ldaps = 1
             else:
                 nighthawk.console_write(CONSOLE_ERROR, f"Unknown argument: {arg}")
                 nighthawk.console_write(CONSOLE_ERROR, "Usage: ldapsearch <query> [--attributes] [--count] [--scope] [--hostname] [--dn] [--ldaps] [--save-to-file] [--notepad]")
@@ -170,10 +170,10 @@ THIS IS AN AVANTGUARD SCRIPT""", "ldapsearch (objectclass=domain)")
 def netshares(params, info):
     command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
     host = ""
-    admin = False
+    admin = 0
     for i in range(0, len(command_params)):
         if (command_params[i] == "--admin"):
-            admin = True
+            admin = 1
         else:
             host = command_params[i]
     
